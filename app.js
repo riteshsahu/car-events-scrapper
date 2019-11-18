@@ -12,67 +12,70 @@ const csvWriter = createCsvWriter({
         { id: 'startDate', title: 'startDate' },
         { id: 'endDate', title: 'endDate' },
         { id: 'photoUrl', title: 'photoUrl' },
-        { id: 'eventUrl', title: 'eventUrl' },        
-        { id: 'contactEmail', title: 'contactEmail' },        
+        { id: 'eventUrl', title: 'eventUrl' },
+        { id: 'contactEmail', title: 'contactEmail' },
     ]
 });
 
 async function init() {
-    let results = []
-    let DuponRes = await getDataFromhttpsDupontregistry();
-     results += results.concat(DuponRes.result);
-     await DuponRes.browser.close();
+    let allResults = [];
+    let results = [];
 
     let NorcalRes = await getDataFromNorcalcarculture();
-    results += results.concat(NorcalRes.result);
+    results = results.concat(NorcalRes.result);
+    allResults = allResults.concat(results);
     await NorcalRes.browser.close();
 
-    let everyCarShowRes = await processDataFromEveryCarShow();
-    results += results.concat(everyCarShowRes.result);
-    await everyCarShowRes.browser.close();
-
-    let hemmingsResult = await processDataFromHemmings();
-    results += results.concat(hemmingsResult.result);
-    await hemmingsResult.browser.close();
-
-    let thermotorRes = await processDataFromThemotoringdiary();
-    results += results.concat(thermotorRes.result);
-    await thermotorRes.browser.close();
-
-    // ------------------------------------------------------------
-    
     let atodomotoRep = await processDataFromAtodomotor();
-    results += results.concat(atodomotoRep.result);
+    results = results.concat(atodomotoRep.result);
+    allResults = allResults.concat(results);
     await atodomotoRep.browser.close();
 
     let SocalcarcultureResp = await processDataFromSocalcarculture();
-    results += results.concat(SocalcarcultureResp.result);
+    results = results.concat(SocalcarcultureResp.result);
+    allResults = allResults.concat(results);
     await SocalcarcultureResp.browser.close();
 
+    let DuponRes = await getDataFromhttpsDupontregistry();
+    results = results.concat(DuponRes.result);
+    allResults = allResults.concat(results);
+    await DuponRes.browser.close();
+
+    let thermotorRes = await processDataFromThemotoringdiary();
+    results = results.concat(thermotorRes.result);
+    allResults = allResults.concat(results);
+    await thermotorRes.browser.close();
+
     let MiclasicoResp = await processDataFromMiclasico();
-    results += results.concat(MiclasicoResp.result);
+    results = results.concat(MiclasicoResp.result);
+    allResults = allResults.concat(results);
     await MiclasicoResp.browser.close();
 
-
-    let aceCafeResp = await  processDataFromAcecafe();
-    results += results.concat(aceCafeResp.result);
+    let aceCafeResp = await processDataFromAcecafe();
+    results = results.concat(aceCafeResp.result);
+    allResults = allResults.concat(results);
     await aceCafeResp.browser.close();
 
+    let hemmingsResult = await processDataFromHemmings();
+    results = results.concat(hemmingsResult.result);
+    allResults = allResults.concat(results);
+    await hemmingsResult.browser.close();
+
+    let everyCarShowRes = await processDataFromEveryCarShow();
+    results = results.concat(everyCarShowRes.result);
+    allResults = allResults.concat(results);
+    await everyCarShowRes.browser.close();
+
     let flaCarsShowResp = await processDataFromFlaCarsShows();
-    results += results.concat(flaCarsShowResp.result);
+    results = results.concat(flaCarsShowResp.result);
+    allResults = allResults.concat(results);
     await flaCarsShowResp.browser.close();
-    console.log(results.length);
+
+    console.log("Total " + allResults.length + " events pulled.");
 
     csvWriter
-        .writeRecords(results)
+        .writeRecords(allResults)
         .then(() => console.log('The CSV file was written successfully'));
-
-
-    //processDataFromAtodomotor()
-    //processDateForOldride() // NI
-    //processDataFromSocalcarculture();
-    //processDataFromMiclasico();
-    
 
 }
 
@@ -94,7 +97,7 @@ async function getDataFromhttpsDupontregistry() {
     var currentPage = 1;
     await page.waitForSelector('.job-manager-pagination ul li');
     var pagesCount = (await page.$$(".job-manager-pagination ul li")).length - 1;
-    
+
     let results = []
     try {
         do {
@@ -109,24 +112,24 @@ async function getDataFromhttpsDupontregistry() {
 
             for (let i = 0; i < urls.length; i++) {
                 await page.goto(urls[i], { waitUntil: 'domcontentloaded' });
-    
+
                 await new Promise(resolve => setTimeout(resolve, 2000));
 
                 let startDate = "", endDate = "", title = "", description = "";
                 let address = "", contactPhone = "", contactEmail = "", photoUrl = "";
-    
+
                 // get title
                 let titleEl = await page.$$('.profile-name .case27-primary-text');
                 if (titleEl && titleEl[0]) {
                     title = await (await titleEl[0].getProperty('innerText')).jsonValue();
                 }
-    
+
                 // get description
                 let descriptionEl = await page.$$('.row.cts-column-wrapper.cts-main-column .element.content-block.wp-editor-content .pf-body');
                 if (descriptionEl && descriptionEl[0]) {
                     description = await (await descriptionEl[0].getProperty('innerText')).jsonValue();
                 }
-    
+
                 // get event start and end date
                 let fullStartDateEl = await page.$$('.price-or-date .value');
                 let year = "";
@@ -144,7 +147,7 @@ async function getDataFromhttpsDupontregistry() {
                     endDate = dateText.replace(/\n/g, " ").substr(dateText.indexOf("Event End"), dateText.length);
                     endDate = endDate.replace("Event End ", "").trim();
                 }
-    
+
                 // get address
                 let addressEl = await page.$$('.block-field-job_location .pf-body > p:nth-child(2)');
                 if (addressEl && addressEl[0]) {
@@ -159,8 +162,8 @@ async function getDataFromhttpsDupontregistry() {
 
                 // get contactEmail                
                 contactEmail = await page.evaluate(() => {
-                    let contactEmailChildEl =  document.querySelector('.icon-email-outbox');
-                    if(contactEmailChildEl) {
+                    let contactEmailChildEl = document.querySelector('.icon-email-outbox');
+                    if (contactEmailChildEl) {
                         return contactEmailChildEl.parentNode.getAttribute("href");
                     } else {
                         return "";
@@ -169,14 +172,14 @@ async function getDataFromhttpsDupontregistry() {
 
                 // get photo url
                 let photoUrlText = await page.evaluate(() => {
-                    let photoEl =  document.querySelector('.profile-cover.parallax-bg.profile-cover-image');
-                    if(photoEl) {
+                    let photoEl = document.querySelector('.profile-cover.parallax-bg.profile-cover-image');
+                    if (photoEl) {
                         return photoEl.getAttribute("data-jarallax-original-styles");
                     }
                 });
 
                 if (photoUrlText) {
-                    photoUrl = photoUrlText.replace("background-image: url('", "").replace("');", "");                    
+                    photoUrl = photoUrlText.replace("background-image: url('", "").replace("');", "");
                 }
 
                 results.push({
@@ -197,7 +200,7 @@ async function getDataFromhttpsDupontregistry() {
             await page.goto(`https://directory.dupontregistry.com/explore/?type=event&sort=upcoming&pg=${currentPage}`);
             await new Promise(resolve => setTimeout(resolve, 2000));
         } while (currentPage <= pagesCount);
-                
+
     } catch (e) {
         console.log(e);
         results = []
@@ -241,10 +244,10 @@ async function getDataFromNorcalcarculture() {
         results = await page.evaluate(() => {
             let results = [];
             let events = document.querySelectorAll('.entry-content p');
-            
-            for (var i = 0; i < events.length; i++) {    
 
-                if(! events[i].querySelector("a > strong")) {
+            for (var i = 0; i < events.length; i++) {
+
+                if (!events[i].querySelector("a > strong")) {
                     continue;
                 }
 
@@ -259,9 +262,9 @@ async function getDataFromNorcalcarculture() {
                 // note: year is hardcoded as current year
                 let date = "";
                 if (eventText.indexOf("is") !== -1) {
-                    date = eventText.substring(eventText.indexOf("is") + 3, eventText.lastIndexOf(" at"));                    
+                    date = eventText.substring(eventText.indexOf("is") + 3, eventText.lastIndexOf(" at"));
                 } else {
-                    date = eventText.substring(eventText.indexOf("are") + 4, eventText.lastIndexOf(" at"));                    
+                    date = eventText.substring(eventText.indexOf("are") + 4, eventText.lastIndexOf(" at"));
                 }
 
                 date = date.substring(date.indexOf(",") + 2);
@@ -282,14 +285,14 @@ async function getDataFromNorcalcarculture() {
                     endDate = startEndDates[1] + " " + currentYear;
                 } else {
                     endDate = startEndDates[0] + " " + currentYear;
-                }   
+                }
                 if (startEndTimes && startEndTimes[1]) {
                     endDate = endDate + " " + startEndTimes[1];
-                }         
-                
+                }
+
                 // get location
                 location = eventText.substring(eventText.lastIndexOf("at") + 3);
-    
+
                 results.push({
                     "platform": "https://norcalcarculture.com/",
                     "startDate": startDate,
@@ -299,12 +302,12 @@ async function getDataFromNorcalcarculture() {
                     "location": location,
                     "contactPhone": "",
                     "photoUrl": "",
-                    "eventUrl": "",        
-                    "contactEmail": "",       
+                    "eventUrl": "",
+                    "contactEmail": "",
                 });
             }
             return results;
-        });        
+        });
     } catch (e) {
         console.log(e);
         results = [];
@@ -320,10 +323,10 @@ async function getDataFromNorcalcarculture() {
 async function getDataFromEveryCarShow(page, browser, results) {
     var currentPage = 1;
     let events = (await page.$$(".tribe-events-list .tribe-events-loop"))[0];
-    
+
     try {
         // loop while we have events
-        while(events) {
+        while (events) {
 
             // get events urls from page            
             let urls = await page.evaluate(() => {
@@ -338,25 +341,25 @@ async function getDataFromEveryCarShow(page, browser, results) {
             // visit each page and extract information 
             for (let i = 0; i < urls.length; i++) {
                 await page.goto(urls[i], { waitUntil: 'domcontentloaded' });
-    
+
                 await new Promise(resolve => setTimeout(resolve, 2000));
 
                 let startDate = "", endDate = "", title = "", description = "";
                 let location = "", contactPhone = "", contactEmail = "";
-    
+
                 // get title
                 let titleEl = await page.$$('.tribe-events-single-event-title');
                 if (titleEl && titleEl[0]) {
                     title = await (await titleEl[0].getProperty('innerText')).jsonValue();
                 }
-    
+
                 // get description
                 let descriptionEl = await page.$$('.tribe-events-single-event-description');
                 if (descriptionEl && descriptionEl[0]) {
                     description = await (await descriptionEl[0].getProperty('innerText')).jsonValue();
-                    description = description.substring(0 , description.lastIndexOf("FacebookTwitterGoogle+Email"));
+                    description = description.substring(0, description.lastIndexOf("FacebookTwitterGoogle+Email"));
                 }
-    
+
                 // get event start and end date
                 let fullStartDateEl = "", fullEndDateEl = "";
                 fullStartDateEl = await page.$$('.tribe-events-abbr.tribe-events-start-date.published.dtstart');
@@ -381,7 +384,7 @@ async function getDataFromEveryCarShow(page, browser, results) {
                     }
                     if (fullEndDateEl && fullEndDateEl[0]) {
                         endDate = await (await fullEndDateEl[0].getProperty('innerText')).jsonValue();
-                    }                    
+                    }
                 }
 
                 // get location
@@ -451,10 +454,10 @@ async function getDataFromHemmings(page, browser, results) {
 
     var eventCount = 0;
     let events = (await page.$$("#results_list .mevent_box"));
-    
+
     try {
         // loop while we have events
-        while(events.length) {
+        while (events.length) {
 
             // get events urls from page            
             let urls = await page.evaluate(() => {
@@ -469,29 +472,29 @@ async function getDataFromHemmings(page, browser, results) {
             // visit each page and extract information 
             for (let i = 0; i < urls.length; i++) {
                 await page.goto(urls[i], { waitUntil: 'domcontentloaded' });
-    
+
                 await new Promise(resolve => setTimeout(resolve, 2000));
 
                 let startDate = "", endDate = "", title = "", description = "";
                 let location = "", contactPhone = "";
-    
+
                 // get title
                 let titleEl = await page.$$('#event_details h1.summary');
                 if (titleEl && titleEl[0]) {
                     title = await (await titleEl[0].getProperty('innerText')).jsonValue();
                 }
-    
+
                 // get description
                 let descriptionEl = await page.$$('#event_details .description p');
                 if (descriptionEl && descriptionEl[0]) {
                     description = await (await descriptionEl[0].getProperty('innerText')).jsonValue();
                 }
-    
+
                 // get event start and end date
                 let fullDateEl = await page.$$('#event_details h1+h3');
                 if (fullDateEl && fullDateEl[0]) {
                     let fullDateText = await (await fullDateEl[0].getProperty('innerText')).jsonValue();
-                    [startDate, endDate] = getStartAndEndDates(fullDateText);                    
+                    [startDate, endDate] = getStartAndEndDates(fullDateText);
                 }
 
                 // get location
@@ -505,13 +508,13 @@ async function getDataFromHemmings(page, browser, results) {
                 if (contactPhoneEl && contactPhoneEl[0]) {
                     contactPhoneText = await (await contactPhoneEl[0].getProperty('innerText')).jsonValue();
                     let contactPhoneMatches = contactPhoneText.match(/[0-9]{10}|[0-9]{3}-[0-9]{3}-[0-9]{4}/g);
-                    let i=0;
+                    let i = 0;
                     while (contactPhoneMatches && contactPhoneMatches[i]) {
                         contactPhone += contactPhoneMatches[i];
                         i++;
                         if (contactPhoneMatches[i]) {
                             contactPhone += ", ";
-                        }                        
+                        }
                     }
                 }
 
@@ -553,7 +556,7 @@ async function getDataFromThemotoringdiary(page, browser, results) {
 
     try {
         // loop while we have events
-        while(events.length) {
+        while (events.length) {
 
             // get all events urls from current page            
             let urls = await page.evaluate(() => {
@@ -568,29 +571,29 @@ async function getDataFromThemotoringdiary(page, browser, results) {
             // visit each page and extract information 
             for (let i = 0; i < urls.length; i++) {
                 await page.goto(urls[i], { waitUntil: 'domcontentloaded' });
-    
+
                 await new Promise(resolve => setTimeout(resolve, 2000));
 
                 let startDate = "", endDate = "", title = "", description = "";
                 let location = "", contactPhone = "", contactEmail = ""; photoUrl = "";
-    
+
                 // get title
                 let titleEl = await page.$$('#tribe-events .tribe-events-single-event-title');
                 if (titleEl && titleEl[0]) {
                     title = await (await titleEl[0].getProperty('innerText')).jsonValue();
                 }
-    
+
                 // get description
                 let descriptionEl = await page.$$('#tribe-events .tribe-events-single-event-description p');
                 if (descriptionEl && descriptionEl[0]) {
                     description = await (await descriptionEl[0].getProperty('innerText')).jsonValue();
                 }
-    
+
                 // get event start and end date
                 let fullDateEl = await page.$$('#tribe-events .tribe-events-schedule');
                 if (fullDateEl && fullDateEl[0]) {
                     let fullDateText = await (await fullDateEl[0].getProperty('innerText')).jsonValue();
-                    [startDate, endDate] = getStartAndEndDates(fullDateText);                    
+                    [startDate, endDate] = getStartAndEndDates(fullDateText);
                 }
 
                 // get location
@@ -619,12 +622,12 @@ async function getDataFromThemotoringdiary(page, browser, results) {
 
                 // get photoUrl
                 photoUrl = await page.evaluate(() => {
-                    let photoEl =  document.querySelector('#tribe-events .tribe-events-event-image img');
-                    if(photoEl) {
+                    let photoEl = document.querySelector('#tribe-events .tribe-events-event-image img');
+                    if (photoEl) {
                         return photoEl.getAttribute("src");
                     }
                 });
-                
+
                 results.push({
                     "platform": "https://www.themotoringdiary.com",
                     "title": title,
@@ -687,7 +690,7 @@ async function getDataFromAtodomotor(page, browser, results) {
                     startDate += " " + monthMatch[0];
                 }
                 if (yearMatch && yearMatch[0]) {
-                    startDate += " " + yearMatch[0];                    
+                    startDate += " " + yearMatch[0];
                 }
 
                 if (datesMatch[1]) {
@@ -696,11 +699,11 @@ async function getDataFromAtodomotor(page, browser, results) {
                         endDate += " " + monthMatch[0];
                     }
                     if (yearMatch && yearMatch[0]) {
-                        endDate += " " + yearMatch[0];                    
+                        endDate += " " + yearMatch[0];
                     }
                 }
             }
-            
+
         }
 
         results.push({
@@ -778,8 +781,8 @@ async function getDataFromSocalCarCulture(page, browser, results) {
                     i++;
 
                     // skip non event trEl
-                    if (trEl[i] && ! trEl[i].querySelector("tr > td > b")) {
-                        while (trEl[i] && ! trEl[i].querySelector("tr > td > b")) {
+                    if (trEl[i] && !trEl[i].querySelector("tr > td > b")) {
+                        while (trEl[i] && !trEl[i].querySelector("tr > td > b")) {
                             i++;
                         }
                     }
@@ -798,20 +801,20 @@ async function getDataFromSocalCarCulture(page, browser, results) {
                         let datesMatch = datesText.match(/[0-9]{1,2}/g);
                         let timesMatch = eventText.match(/\b([0-9]{1,2})(:?[0-9]{1,2})?\s?(a.?m.?|p.?m.?)\b/ig);
                         if (datesMatch && datesMatch[0]) {
-                            startDate = datesMatch[0] + " " + month + " " + year;   
+                            startDate = datesMatch[0] + " " + month + " " + year;
 
                             if (timesMatch && timesMatch[0]) {
                                 startDate += " " + timesMatch[0];
                             }
 
                             if (datesMatch[1]) {
-                                endDate = datesMatch[1] + " " + month + " " + year;   
+                                endDate = datesMatch[1] + " " + month + " " + year;
 
                                 if (timesMatch && timesMatch[1]) {
                                     endDate += " " + timesMatch[1];
                                 }
                             } else {
-                                endDate = datesMatch[0] + " " + month + " " + year;   
+                                endDate = datesMatch[0] + " " + month + " " + year;
 
                                 if (timesMatch && timesMatch[1]) {
                                     endDate += " " + timesMatch[1];
@@ -819,21 +822,22 @@ async function getDataFromSocalCarCulture(page, browser, results) {
                             }
                         }
 
-                        let place = eventText.substring(0, eventText.indexOf("-") - 2);
-                        eventText = eventText.substring(eventText.indexOf("-") + 2); // remove venue from eventText
+                        let place = eventText.substring(0, eventText.indexOf(" - "));
+                        place = place.replace("*", "");
+                        eventText = eventText.substring(eventText.indexOf(" - ") + 2); // remove venue from eventText
                         let address = "";
-                        if (eventText.includes("@")) {
-                            title = eventText.substring(0, eventText.indexOf("@") - 1);
-                            eventText = eventText.substring(eventText.indexOf("@") + 2);    // remove title from eventText
-                            address = eventText.substring(0,  eventText.indexOf("-")-1);
+                        if (eventText.includes(" @ ")) {
+                            title = eventText.substring(0, eventText.indexOf(" @ ")).trim();
+                            eventText = eventText.substring(eventText.indexOf(" @ ") + 2);    // remove title from eventText
+                            address = eventText.substring(0, eventText.indexOf(" - ")).trim();
                         } else {
-                            title = eventText.substring(0, eventText.indexOf("-") - 1);
-                            eventText = eventText.substring(eventText.indexOf("-") + 2);    // remove title from eventText
-                            address = eventText.substring(0, eventText.indexOf("-") - 1);
+                            title = eventText.substring(0, eventText.indexOf(" - ")).trim();
+                            eventText = eventText.substring(eventText.indexOf(" - ") + 2);    // remove title from eventText
+                            address = eventText.substring(0, eventText.indexOf(" - ")).trim();
                         }
 
                         location = address + ", " + place;
-    
+
                         results.push({
                             "platform": "http://www.socalcarculture.com/events.html",
                             "title": title,
@@ -897,7 +901,7 @@ async function getDataFromMiclasico(page, browser) {
             let fullDateEl = await page.$$('.jev_evdt_header > div:nth-child(3)');
             if (fullDateEl && fullDateEl[0]) {
                 let fullDateText = await (await fullDateEl[0].getProperty('innerText')).jsonValue();
-                
+
                 // convert month to english language
                 let spanishMonthMatch = fullDateText.match(/\b(Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre|Noviembre|Diciembre)\b/ig);
                 if (spanishMonthMatch && spanishMonthMatch[0]) {
@@ -942,14 +946,14 @@ async function getDataFromMiclasico(page, browser) {
                         endDate += " " + timesMatch[1];
                     }
                 }
-                
+
             }
 
             // get address
             location = await page.evaluate(() => {
                 let eventHTML = document.querySelector('.jev_eventdetails_body').innerHTML;
                 if (eventHTML) {
-                    let address = eventHTML.substring(eventHTML.indexOf("</strong>")+9, eventHTML.indexOf("<br>"));
+                    let address = eventHTML.substring(eventHTML.indexOf("</strong>") + 9, eventHTML.indexOf("<br>"));
                     return address;
                 } else {
                     return "";
@@ -1002,13 +1006,13 @@ async function getDataFromMiclasico(page, browser) {
             });
         }
     } catch (error) {
-        console.log(error);   
+        console.log(error);
     }
     console.log(results)
     console.log("pulled " + results.length + " results");
     return {
-        'result' : results,
-        'browser' : browser
+        'result': results,
+        'browser': browser
     }
 }
 
@@ -1035,7 +1039,7 @@ async function getDataFromAceCafe(page, browser) {
                     let eventBox = events[i];
                     let title = "", startDate = "", endDate = "", location = "";
                     let contactEmail = "", description = "", eventURL = "";
-                    
+
                     // get title
                     let titleEl = eventBox.querySelector(".label-container .label-inner h3.label")
                     if (titleEl) {
@@ -1103,8 +1107,8 @@ async function getDataFromAceCafe(page, browser) {
     console.log(results)
     console.log("pulled " + results.length + " results");
     return {
-        'result' : results,
-        'browser' : browser
+        'result': results,
+        'browser': browser
     }
 }
 
@@ -1119,7 +1123,7 @@ async function getDataFromFlaCarsShows(page, browser) {
         let pageURL = `https://flacarshows.com/events/event/on/${currentYear}`;
         await page.goto(pageURL, { waitUntil: 'domcontentloaded' });
         await page.waitForSelector('#left-area .event');
-        let eventsInCurrentYear = await page.$$("#left-area .event");            
+        let eventsInCurrentYear = await page.$$("#left-area .event");
 
         // loop through year while we have events in current year
         while (eventsInCurrentYear.length) {
@@ -1167,7 +1171,7 @@ async function getDataFromFlaCarsShows(page, browser) {
                         if (titleEl && titleEl[0]) {
                             title = await (await titleEl[0].getProperty('innerText')).jsonValue();
                         }
-                        
+
                         // get description
                         let descriptionEl = await page.$$('#left-area .event .eo-event-venue-description p');
                         if (descriptionEl && descriptionEl[0]) {
@@ -1218,18 +1222,18 @@ async function getDataFromFlaCarsShows(page, browser) {
                                 return eventHTML.substring(22, eventHTML.indexOf("</span></li>"));
                             } else {
                                 return "";
-                            }             
+                            }
                         });
 
                         // get contact phone
                         contactEmail = await page.evaluate(() => {
                             eventHTML = document.querySelector('#left-area .event').innerHTML;
                             if (eventHTML.includes("Email:")) {
-                                eventHTML = eventHTML.substring(eventHTML.indexOf("Email")+38)
-                                return eventHTML.substring(0, eventHTML.indexOf('>')-1)
+                                eventHTML = eventHTML.substring(eventHTML.indexOf("Email") + 38)
+                                return eventHTML.substring(0, eventHTML.indexOf('>') - 1)
                             } else {
                                 return "";
-                            }                         
+                            }
                         });
 
 
@@ -1257,17 +1261,17 @@ async function getDataFromFlaCarsShows(page, browser) {
             currentMonthText = ('0' + currentMonth).slice(-2);
             pageURL = `https://flacarshows.com/events/event/on/${currentYear}`;
             await page.goto(pageURL, { waitUntil: 'domcontentloaded' });
-            eventsInCurrentYear = await page.$$("#left-area .event");            
+            eventsInCurrentYear = await page.$$("#left-area .event");
         }
     } catch (error) {
-        console.log(error); 
-        results = [];  
+        console.log(error);
+        results = [];
     }
     console.log(results)
     console.log("pulled " + results.length + " results");
     return {
-        'result' : results,
-        'browser' : browser
+        'result': results,
+        'browser': browser
     }
 }
 
@@ -1334,17 +1338,17 @@ async function processDateForOldride() {
 async function processDataFromSocalcarculture() {
     //let Url = ['https://www.oldride.com/events/alaska.html'];
     // for (var i = 0; i < URLS.length; i++) {
-        const browser = await puppeteer.launch({
-            headless: false,
-            networkIdleTimeout: 10000,
-            waitUntil: 'networkidle',
-            args: ['--start-maximized', '--window-size=1366,700']
-        });
-        const page = await browser.newPage();
-        await page.setViewport({ width: 1366, height: 700 });
-        await page.goto('http://www.socalcarculture.com/events.html');
+    const browser = await puppeteer.launch({
+        headless: false,
+        networkIdleTimeout: 10000,
+        waitUntil: 'networkidle',
+        args: ['--start-maximized', '--window-size=1366,700']
+    });
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1366, height: 700 });
+    await page.goto('http://www.socalcarculture.com/events.html');
 
-        return await getDataFromSocalCarCulture(page, browser, []);
+    return await getDataFromSocalCarCulture(page, browser, []);
     // }
 }
 
@@ -1361,7 +1365,7 @@ async function processDataFromMiclasico() {
     await page.setViewport({ width: 1366, height: 700 });
     await page.goto('https://www.miclasico.com/calendario');
 
-    return await getDataFromMiclasico(page,browser);
+    return await getDataFromMiclasico(page, browser);
 
 }
 
@@ -1428,7 +1432,7 @@ function getStartAndEndDates(fullDateText) {
         }
     }
 
-    return [startDate,endDate];
+    return [startDate, endDate];
 }
 
 function convertMonthFromSpanishToEnglish(spanishMonth) {
