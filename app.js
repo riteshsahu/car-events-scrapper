@@ -18,63 +18,52 @@ const csvWriter = createCsvWriter({
 });
 
 async function init() {
-    let allResults = [];
     let results = [];
 
     let NorcalRes = await getDataFromNorcalcarculture();
     results = results.concat(NorcalRes.result);
-    allResults = allResults.concat(results);
     await NorcalRes.browser.close();
 
     let atodomotoRep = await processDataFromAtodomotor();
     results = results.concat(atodomotoRep.result);
-    allResults = allResults.concat(results);
     await atodomotoRep.browser.close();
 
     let SocalcarcultureResp = await processDataFromSocalcarculture();
     results = results.concat(SocalcarcultureResp.result);
-    allResults = allResults.concat(results);
     await SocalcarcultureResp.browser.close();
 
     let DuponRes = await getDataFromhttpsDupontregistry();
     results = results.concat(DuponRes.result);
-    allResults = allResults.concat(results);
     await DuponRes.browser.close();
 
     let thermotorRes = await processDataFromThemotoringdiary();
     results = results.concat(thermotorRes.result);
-    allResults = allResults.concat(results);
     await thermotorRes.browser.close();
 
     let MiclasicoResp = await processDataFromMiclasico();
     results = results.concat(MiclasicoResp.result);
-    allResults = allResults.concat(results);
     await MiclasicoResp.browser.close();
 
     let aceCafeResp = await processDataFromAcecafe();
     results = results.concat(aceCafeResp.result);
-    allResults = allResults.concat(results);
     await aceCafeResp.browser.close();
 
     let hemmingsResult = await processDataFromHemmings();
     results = results.concat(hemmingsResult.result);
-    allResults = allResults.concat(results);
     await hemmingsResult.browser.close();
 
     let everyCarShowRes = await processDataFromEveryCarShow();
     results = results.concat(everyCarShowRes.result);
-    allResults = allResults.concat(results);
     await everyCarShowRes.browser.close();
 
     let flaCarsShowResp = await processDataFromFlaCarsShows();
     results = results.concat(flaCarsShowResp.result);
-    allResults = allResults.concat(results);
     await flaCarsShowResp.browser.close();
 
-    console.log("Total " + allResults.length + " events pulled.");
+    console.log("Total " + results.length + " events pulled.");
 
     csvWriter
-        .writeRecords(allResults)
+        .writeRecords(results)
         .then(() => console.log('The CSV file was written successfully'));
 
 }
@@ -85,7 +74,7 @@ async function getDataFromhttpsDupontregistry() {
     const browser = await puppeteer.launch({
         headless: false,
         networkIdleTimeout: 10000,
-        waitUntil: 'networkidle',
+        waitUntil: 'networkidle0',
         args: ['--start-maximized', '--window-size=1366,700']
     });
 
@@ -164,7 +153,8 @@ async function getDataFromhttpsDupontregistry() {
                 contactEmail = await page.evaluate(() => {
                     let contactEmailChildEl = document.querySelector('.icon-email-outbox');
                     if (contactEmailChildEl) {
-                        return contactEmailChildEl.parentNode.getAttribute("href");
+                        let email = contactEmailChildEl.parentNode.getAttribute("href");
+                        email = email.replace("mailto:", "");
                     } else {
                         return "";
                     }
@@ -218,11 +208,23 @@ async function processDataFromEveryCarShow() {
     const browser = await puppeteer.launch({
         headless: false,
         networkIdleTimeout: 10000,
-        waitUntil: 'networkidle',
+        waitUntil: 'networkidle0',
         args: ['--start-maximized', '--window-size=1366,700']
     });
     const page = await browser.newPage();
     await page.setViewport({ width: 1366, height: 700 });
+
+    await page.setRequestInterception(true);
+    
+    page.on('request', (req) => {
+        if(req.resourceType() == 'stylesheet' || req.resourceType() == 'font' || req.resourceType() == 'image'){
+            req.abort();
+        }
+        else {
+            req.continue();
+        }
+    });
+
     await page.goto('http://everycarshow.com/events/');
     console.log("started fetching data from  http://everycarshow.com/events/");
     return await getDataFromEveryCarShow(page, browser, []);
@@ -231,13 +233,13 @@ async function getDataFromNorcalcarculture() {
     const browser = await puppeteer.launch({
         headless: false,
         networkIdleTimeout: 10000,
-        waitUntil: 'networkidle',
+        waitUntil: 'networkidle0',
         args: ['--start-maximized', '--window-size=1366,700']
     });
 
     const page = await browser.newPage();
     await page.setViewport({ width: 1366, height: 700 });
-    await page.goto('https://norcalcarculture.com/');
+    await page.goto('https://norcalcarculture.com/', {waitUntil: 'load', timeout: 0});
     console.log("Started to fetch data from https://norcalcarculture.com ");
     let results = [];
     try {
@@ -1121,7 +1123,7 @@ async function getDataFromFlaCarsShows(page, browser) {
 
     try {
         let pageURL = `https://flacarshows.com/events/event/on/${currentYear}`;
-        await page.goto(pageURL, { waitUntil: 'domcontentloaded' });
+        await page.goto(pageURL, {waitUntil: 'load', timeout: 0});
         await page.waitForSelector('#left-area .event');
         let eventsInCurrentYear = await page.$$("#left-area .event");
 
@@ -1130,7 +1132,7 @@ async function getDataFromFlaCarsShows(page, browser) {
             // loop through months
             while (currentMonth <= 12) {
                 pageURL = `https://flacarshows.com/events/event/on/${currentYear}/${currentMonthText}`;
-                await page.goto(pageURL, { waitUntil: 'domcontentloaded' });
+                await page.goto(pageURL, {waitUntil: 'load', timeout: 0});
 
                 let currentDates = await page.evaluate(() => {
                     let datesEl = [].slice.call(document.querySelectorAll('#wp-calendar tbody tr > td.event'));
@@ -1144,7 +1146,7 @@ async function getDataFromFlaCarsShows(page, browser) {
                 // loop through dates
                 for (let i = 0; i < currentDates.length; i++) {
                     pageURL = `https://flacarshows.com/events/event/on/${currentYear}/${currentMonthText}/${currentDates[i]}`;
-                    await page.goto(pageURL, { waitUntil: 'domcontentloaded' });
+                    await page.goto(pageURL, {waitUntil: 'load', timeout: 0});
 
                     // get urls of all events on current page
                     let eventUrls = await page.evaluate(() => {
@@ -1160,7 +1162,7 @@ async function getDataFromFlaCarsShows(page, browser) {
 
                     // visit each event
                     for (let j = 0; j < eventUrls.length; j++) {
-                        await page.goto(eventUrls[j], { waitUntil: 'domcontentloaded' });
+                        await page.goto(eventUrls[j], {waitUntil: 'load', timeout: 0});
 
                         // scrap data from event page
                         let title = "", description = "", startDate = "", endDate = "", location = "";
@@ -1260,7 +1262,7 @@ async function getDataFromFlaCarsShows(page, browser) {
             currentMonth = 1;   // reset month
             currentMonthText = ('0' + currentMonth).slice(-2);
             pageURL = `https://flacarshows.com/events/event/on/${currentYear}`;
-            await page.goto(pageURL, { waitUntil: 'domcontentloaded' });
+            await page.goto(pageURL, {waitUntil: 'load', timeout: 0});
             eventsInCurrentYear = await page.$$("#left-area .event");
         }
     } catch (error) {
@@ -1280,13 +1282,24 @@ async function processDataFromHemmings() {
     const browser = await puppeteer.launch({
         headless: false,
         networkIdleTimeout: 10000,
-        waitUntil: 'networkidle',
+        waitUntil: 'networkidle0',
         args: ['--start-maximized', '--window-size=1366,700']
     });
     const page = await browser.newPage();
     await page.setViewport({ width: 1366, height: 700 });
+    await page.setRequestInterception(true);
+    
+    page.on('request', (req) => {
+        if(req.resourceType() == 'stylesheet' || req.resourceType() == 'font' || req.resourceType() == 'image'){
+            req.abort();
+        }
+        else {
+            req.continue();
+        }
+    });
+
     await page.goto('https://www.hemmings.com/calendar');
-    console.log("startef fetching data from https://www.hemmings.com/calendar");
+    console.log("started fetching data from https://www.hemmings.com/calendar");
     return await getDataFromHemmings(page, browser, []);
 }
 
@@ -1294,11 +1307,23 @@ async function processDataFromThemotoringdiary() {
     const browser = await puppeteer.launch({
         headless: false,
         networkIdleTimeout: 10000,
-        waitUntil: 'networkidle',
+        waitUntil: 'networkidle0',
         args: ['--start-maximized', '--window-size=1366,700']
     });
     const page = await browser.newPage();
     await page.setViewport({ width: 1366, height: 700 });
+
+    await page.setRequestInterception(true);
+    
+    page.on('request', (req) => {
+        if(req.resourceType() == 'stylesheet' || req.resourceType() == 'font' || req.resourceType() == 'image'){
+            req.abort();
+        }
+        else {
+            req.continue();
+        }
+    });
+
     await page.goto('https://www.themotoringdiary.com/');
     console.log("pulling data for https://www.themotoringdiary.com/");
     return await getDataFromThemotoringdiary(page, browser, []);
@@ -1307,7 +1332,7 @@ async function processDataFromAtodomotor() {
     const browser = await puppeteer.launch({
         headless: false,
         networkIdleTimeout: 10000,
-        waitUntil: 'networkidle',
+        waitUntil: 'networkidle0',
         args: ['--start-maximized', '--window-size=1366,700']
     });
     const page = await browser.newPage();
@@ -1323,7 +1348,7 @@ async function processDateForOldride() {
         const browser = await puppeteer.launch({
             headless: false,
             networkIdleTimeout: 10000,
-            waitUntil: 'networkidle',
+            waitUntil: 'networkidle0',
             args: ['--start-maximized', '--window-size=1366,700']
         });
         const page = await browser.newPage();
@@ -1341,7 +1366,7 @@ async function processDataFromSocalcarculture() {
     const browser = await puppeteer.launch({
         headless: false,
         networkIdleTimeout: 10000,
-        waitUntil: 'networkidle',
+        waitUntil: 'networkidle0',
         args: ['--start-maximized', '--window-size=1366,700']
     });
     const page = await browser.newPage();
@@ -1358,11 +1383,23 @@ async function processDataFromMiclasico() {
     const browser = await puppeteer.launch({
         headless: false,
         networkIdleTimeout: 10000,
-        waitUntil: 'networkidle',
+        waitUntil: 'networkidle0',
         args: ['--start-maximized', '--window-size=1366,700']
     });
     const page = await browser.newPage();
     await page.setViewport({ width: 1366, height: 700 });
+
+    await page.setRequestInterception(true);
+    
+    page.on('request', (req) => {
+        if(req.resourceType() == 'stylesheet' || req.resourceType() == 'font' || req.resourceType() == 'image'){
+            req.abort();
+        }
+        else {
+            req.continue();
+        }
+    });
+
     await page.goto('https://www.miclasico.com/calendario');
 
     return await getDataFromMiclasico(page, browser);
@@ -1373,11 +1410,22 @@ async function processDataFromAcecafe() {
     const browser = await puppeteer.launch({
         headless: false,
         networkIdleTimeout: 10000,
-        waitUntil: 'networkidle',
+        waitUntil: 'networkidle0',
         args: ['--start-maximized', '--window-size=1366,700']
     });
     const page = await browser.newPage();
     await page.setViewport({ width: 1366, height: 700 });
+
+    await page.setRequestInterception(true);
+    
+    page.on('request', (req) => {
+        if(req.resourceType() == 'stylesheet' || req.resourceType() == 'font' || req.resourceType() == 'image'){
+            req.abort();
+        }
+        else {
+            req.continue();
+        }
+    });
 
     return await getDataFromAceCafe(page, browser);
 }
@@ -1386,11 +1434,23 @@ async function processDataFromFlaCarsShows() {
     const browser = await puppeteer.launch({
         headless: false,
         networkIdleTimeout: 10000,
-        waitUntil: 'networkidle',
+        waitUntil: 'networkidle0',
         args: ['--start-maximized', '--window-size=1366,700']
     });
     const page = await browser.newPage();
     await page.setViewport({ width: 1366, height: 700 });
+
+    await page.setRequestInterception(true);
+    
+    page.on('request', (req) => {
+        if(req.resourceType() == 'stylesheet' || req.resourceType() == 'font' || req.resourceType() == 'image'){
+            req.abort();
+        }
+        else {
+            req.continue();
+        }
+    });
+
     return await getDataFromFlaCarsShows(page, browser);
 }
 
