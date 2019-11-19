@@ -1,8 +1,10 @@
 const puppeteer = require('puppeteer');
 const createCsvWriter = require('csv-writer').createObjectCsvWriter;
+var timestamp = new Date().getTime();
+const generateLatLongs = require("./generateLatLongs");
 
 const csvWriter = createCsvWriter({
-    path: `output${new Date().getTime()}.csv`,
+    path: `output_${timestamp}.csv`,
     header: [
         { id: 'platform', title: 'platform' },
         { id: 'title', title: 'title' },
@@ -17,7 +19,7 @@ const csvWriter = createCsvWriter({
     ]
 });
 
-async function init() {
+async function init(timestamp) {
     let results = [];
 
     let NorcalRes = await getDataFromNorcalcarculture();
@@ -36,39 +38,43 @@ async function init() {
     results = results.concat(DuponRes.result);
     await DuponRes.browser.close();
 
-    let thermotorRes = await processDataFromThemotoringdiary();
-    results = results.concat(thermotorRes.result);
-    await thermotorRes.browser.close();
+    // let thermotorRes = await processDataFromThemotoringdiary();
+    // results = results.concat(thermotorRes.result);
+    // await thermotorRes.browser.close();
 
-    let MiclasicoResp = await processDataFromMiclasico();
-    results = results.concat(MiclasicoResp.result);
-    await MiclasicoResp.browser.close();
+    // let MiclasicoResp = await processDataFromMiclasico();
+    // results = results.concat(MiclasicoResp.result);
+    // await MiclasicoResp.browser.close();
 
-    let aceCafeResp = await processDataFromAcecafe();
-    results = results.concat(aceCafeResp.result);
-    await aceCafeResp.browser.close();
+    // let aceCafeResp = await processDataFromAcecafe();
+    // results = results.concat(aceCafeResp.result);
+    // await aceCafeResp.browser.close();
 
-    let hemmingsResult = await processDataFromHemmings();
-    results = results.concat(hemmingsResult.result);
-    await hemmingsResult.browser.close();
+    // let hemmingsResult = await processDataFromHemmings();
+    // results = results.concat(hemmingsResult.result);
+    // await hemmingsResult.browser.close();
 
-    let everyCarShowRes = await processDataFromEveryCarShow();
-    results = results.concat(everyCarShowRes.result);
-    await everyCarShowRes.browser.close();
+    // let everyCarShowRes = await processDataFromEveryCarShow();
+    // results = results.concat(everyCarShowRes.result);
+    // await everyCarShowRes.browser.close();
 
-    let flaCarsShowResp = await processDataFromFlaCarsShows();
-    results = results.concat(flaCarsShowResp.result);
-    await flaCarsShowResp.browser.close();
+    // note: more than 4000 events, will take very long time
+    // let flaCarsShowResp = await processDataFromFlaCarsShows();
+    // results = results.concat(flaCarsShowResp.result);
+    // await flaCarsShowResp.browser.close();
 
     console.log("Total " + results.length + " events pulled.");
-
+    console.log("newFile...",newFile)
     csvWriter
         .writeRecords(results)
-        .then(() => console.log('The CSV file was written successfully'));
+        .then(() => {
+            console.log('The CSV file was written successfully');
+            generateLatLongs.generateLatLongs({timestamp: timestamp});
+        });
 
 }
 
-init();
+init(timestamp);
 async function getDataFromhttpsDupontregistry() {
 
     const browser = await puppeteer.launch({
@@ -1032,13 +1038,14 @@ async function getDataFromAceCafe(page, browser) {
         for (let i = 0; i < URLS.length; i++) {
             await page.goto(URLS[i], { waitUntil: 'domcontentloaded' });
             await new Promise(resolve => setTimeout(resolve, 2000));
+            let pageResults = [];
 
-            results = await page.evaluate(() => {
+            pageResults = await page.evaluate(() => {
                 let events = document.querySelectorAll(".postlist .zp_accordion.panel-group");
                 let eventResults = [];
 
-                for (let i = 0; i < events.length; i++) {
-                    let eventBox = events[i];
+                for (let j = 0; j < events.length; j++) {
+                    let eventBox = events[j];
                     let title = "", startDate = "", endDate = "", location = "";
                     let contactEmail = "", description = "", eventURL = "";
 
@@ -1102,6 +1109,7 @@ async function getDataFromAceCafe(page, browser) {
                 }
                 return eventResults;
             });
+            results = results.concat(pageResults);
         }
     } catch (error) {
         console.log(error)
@@ -1132,7 +1140,7 @@ async function getDataFromFlaCarsShows(page, browser) {
             // loop through months
             while (currentMonth <= 12) {
                 pageURL = `https://flacarshows.com/events/event/on/${currentYear}/${currentMonthText}`;
-                await page.goto(pageURL, {waitUntil: 'load', timeout: 0});
+                await page.goto(pageURL, { waitUntil: 'domcontentloaded' });
 
                 let currentDates = await page.evaluate(() => {
                     let datesEl = [].slice.call(document.querySelectorAll('#wp-calendar tbody tr > td.event'));
@@ -1209,9 +1217,11 @@ async function getDataFromFlaCarsShows(page, browser) {
                         let addressEl = await page.$$('#left-area .event .eo-event-meta li:nth-child(4)');
                         if (addressEl && addressEl[0]) {
                             let address = await (await addressEl[0].getProperty('innerText')).jsonValue();
+                            address = address.replace("Address:", "");
                             let venue = "";
                             if (venueEl && venueEl[0]) {
                                 venue = await (await venueEl[0].getProperty('innerText')).jsonValue();
+                                venue = venue.replace("Venue:", "");
                             }
                             location = venue + ", " + address;
                         }
@@ -1238,9 +1248,8 @@ async function getDataFromFlaCarsShows(page, browser) {
                             }
                         });
 
-
                         results.push({
-                            "platform": "https://www.miclasico.com/calendario",
+                            "platform": "https://flacarshows.com/events/event/",
                             "title": title,
                             "description": description,
                             "location": location,
@@ -1415,17 +1424,6 @@ async function processDataFromAcecafe() {
     });
     const page = await browser.newPage();
     await page.setViewport({ width: 1366, height: 700 });
-
-    await page.setRequestInterception(true);
-    
-    page.on('request', (req) => {
-        if(req.resourceType() == 'stylesheet' || req.resourceType() == 'font' || req.resourceType() == 'image'){
-            req.abort();
-        }
-        else {
-            req.continue();
-        }
-    });
 
     return await getDataFromAceCafe(page, browser);
 }
