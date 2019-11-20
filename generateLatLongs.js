@@ -28,7 +28,6 @@ const csvWriter = createCsvWriter({
 
 
 async function generateLatLongs(options) {
-    console.log('hi')
     try {
         // extract csv file records into array
         let csvRecords = [];
@@ -115,4 +114,4 @@ function getData(requestId) {
         });
 }
 
-module.exports =  {generateLatLongs:generateLatLongs};
+module.exports =  generateLatLongs;

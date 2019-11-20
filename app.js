@@ -19,24 +19,24 @@ const csvWriter = createCsvWriter({
     ]
 });
 
-async function init(timestamp) {
+async function init() {
     let results = [];
 
     let NorcalRes = await getDataFromNorcalcarculture();
     results = results.concat(NorcalRes.result);
     await NorcalRes.browser.close();
 
-    let atodomotoRep = await processDataFromAtodomotor();
-    results = results.concat(atodomotoRep.result);
-    await atodomotoRep.browser.close();
+    // let atodomotoRep = await processDataFromAtodomotor();
+    // results = results.concat(atodomotoRep.result);
+    // await atodomotoRep.browser.close();
 
-    let SocalcarcultureResp = await processDataFromSocalcarculture();
-    results = results.concat(SocalcarcultureResp.result);
-    await SocalcarcultureResp.browser.close();
+    // let SocalcarcultureResp = await processDataFromSocalcarculture();
+    // results = results.concat(SocalcarcultureResp.result);
+    // await SocalcarcultureResp.browser.close();
 
-    let DuponRes = await getDataFromhttpsDupontregistry();
-    results = results.concat(DuponRes.result);
-    await DuponRes.browser.close();
+    // let DuponRes = await getDataFromhttpsDupontregistry();
+    // results = results.concat(DuponRes.result);
+    // await DuponRes.browser.close();
 
     // let thermotorRes = await processDataFromThemotoringdiary();
     // results = results.concat(thermotorRes.result);
@@ -64,17 +64,16 @@ async function init(timestamp) {
     // await flaCarsShowResp.browser.close();
 
     console.log("Total " + results.length + " events pulled.");
-    console.log("newFile...",newFile)
     csvWriter
         .writeRecords(results)
         .then(() => {
             console.log('The CSV file was written successfully');
-            generateLatLongs.generateLatLongs({timestamp: timestamp});
+            generateLatLongs({timestamp: timestamp});
         });
 
 }
 
-init(timestamp);
+init();
 async function getDataFromhttpsDupontregistry() {
 
     const browser = await puppeteer.launch({
@@ -255,7 +254,7 @@ async function getDataFromNorcalcarculture() {
 
             for (var i = 0; i < events.length; i++) {
 
-                if (!events[i].querySelector("a > strong")) {
+                if (!(events[i] && events[i].querySelector("a > strong"))) {
                     continue;
                 }
 
@@ -275,13 +274,14 @@ async function getDataFromNorcalcarculture() {
                     date = eventText.substring(eventText.indexOf("are") + 4, eventText.lastIndexOf(" at"));
                 }
 
-                date = date.substring(date.indexOf(",") + 2);
-                let startEndDates = date.match(/(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|(Nov|Dec)(?:ember)?) [0-9]{1,2}(th|nd)?/g);
-                let startEndTimes = date.match(/[0-9]{1,2}(:?[0-9]{1,2})?(am|pm)/g);
+                date = date.substring(date.indexOf(",")).trim();
+                let startEndDates = date.match(/(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|(Nov|Dec)(?:ember)?) [0-9]{1,2}(th|nd|rd)?/ig);
+                let startEndTimes = date.match(/[0-9]{1,2}(:?[0-9]{1,2})?(am|pm)/ig);
                 let currentYear = (new Date).getFullYear();
 
+
                 // parse start date
-                if (startEndDates[0]) {
+                if (startEndDates && startEndDates[0]) {
                     startDate = startEndDates[0] + " " + currentYear;
                     if (startEndTimes && startEndTimes[0]) {
                         startDate = startDate + " " + startEndTimes[0];
@@ -289,17 +289,22 @@ async function getDataFromNorcalcarculture() {
                 }
 
                 // parse end date
-                if (startEndDates[1]) {
+                if (startEndDates && startEndDates[0] && startEndDates[1]) {
                     endDate = startEndDates[1] + " " + currentYear;
-                } else {
+                } else if (startEndDates && startEndDates[0]) {
                     endDate = startEndDates[0] + " " + currentYear;
                 }
+
                 if (startEndTimes && startEndTimes[1]) {
                     endDate = endDate + " " + startEndTimes[1];
                 }
 
                 // get location
-                location = eventText.substring(eventText.lastIndexOf("at") + 3);
+                if (eventText.includes(" at ")) {
+                    location = eventText.substring(eventText.lastIndexOf(" at ") + 4);
+                } else if (eventText.includes(" on ")) {
+                    location = eventText.substring(eventText.lastIndexOf(" on ") + 4);
+                }
 
                 results.push({
                     "platform": "https://norcalcarculture.com/",
@@ -785,7 +790,7 @@ async function getDataFromSocalCarCulture(page, browser, results) {
                     }
 
                     const monthImgEl = trEl[i].querySelector("tr td > img");
-                    let month = monthImgEl.getAttribute("src").match(/(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|(Nov|Dec)(?:ember)?)/g)[0];
+                    let month = monthImgEl.getAttribute("src").match(/(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|(Nov|Dec)(?:ember)?)/ig)[0];
                     i++;
 
                     // skip non event trEl
@@ -919,12 +924,12 @@ async function getDataFromMiclasico(page, browser) {
                     fullDateText = fullDateText.replace(re, englishMonth);
                 }
 
-                let monthDatesMatch = fullDateText.match(/\b[0-9]{1,2}(th|nd)?\s(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|(Nov|Dec)(?:ember)?)\b/ig);
+                let monthDatesMatch = fullDateText.match(/\b[0-9]{1,2}(th|nd|rd)?\s(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|(Nov|Dec)(?:ember)?)\b/ig);
                 let yearsMatch = fullDateText.match(/\b[0-9]{4}\b/g);
                 let timesMatch = fullDateText.match(/\b([0-9]{1,2})(:?[0-9]{1,2})?\s?(a.?m.?|p.?m.?)\b/ig);
 
                 if (!(monthDatesMatch && monthDatesMatch[0])) {
-                    monthDatesMatch = fullDateText.match(/\b(Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre|Noviembre|Diciembre)\s[0-9]{1,2}(th|nd)?\b/ig);
+                    monthDatesMatch = fullDateText.match(/\b(Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre|Noviembre|Diciembre)\s[0-9]{1,2}(th|nd|rd)?\b/ig);
                 }
 
                 if (monthDatesMatch && monthDatesMatch[0]) {
@@ -1453,13 +1458,13 @@ async function processDataFromFlaCarsShows() {
 }
 
 function getStartAndEndDates(fullDateText) {
-    let monthDatesMatch = fullDateText.match(/\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|(Nov|Dec)(?:ember)?) [0-9]{1,2}(th|nd)?\b/ig);
+    let monthDatesMatch = fullDateText.match(/\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|(Nov|Dec)(?:ember)?) [0-9]{1,2}(th|nd|rd)?\b/ig);
     let yearsMatch = fullDateText.match(/\b[0-9]{4}\b/g);
     let timesMatch = fullDateText.match(/\b([0-9]{1,2})(:?[0-9]{1,2})?\s?(a.?m.?|p.?m.?)\b/ig);
     let startDate = "", endDate = "";
 
     if (!(monthDatesMatch && monthDatesMatch[0])) {
-        monthDatesMatch = fullDateText.match(/\b[0-9]{1,2}(th|nd)?\s(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|(Nov|Dec)(?:ember)?)\b/ig);
+        monthDatesMatch = fullDateText.match(/\b[0-9]{1,2}(th|nd|rd)?\s(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|(Nov|Dec)(?:ember)?)\b/ig);
     }
 
     if (monthDatesMatch && monthDatesMatch[0]) {
