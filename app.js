@@ -2,6 +2,8 @@ const puppeteer = require('puppeteer');
 const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 var timestamp = new Date().getTime();
 const generateLatLongs = require("./generateLatLongs");
+const MAX_RETRY = 2;
+var retry = 0;
 
 const csvWriter = createCsvWriter({
     path: `output_${timestamp}.csv`,
@@ -22,43 +24,54 @@ const csvWriter = createCsvWriter({
 async function init() {
     let results = [];
 
+    retry = 0;
     let NorcalRes = await getDataFromNorcalcarculture();
     results = results.concat(NorcalRes.result);
     await NorcalRes.browser.close();
 
+    retry = 0;
     let atodomotoRep = await processDataFromAtodomotor();
     results = results.concat(atodomotoRep.result);
     await atodomotoRep.browser.close();
 
+    retry = 0;
     let SocalcarcultureResp = await processDataFromSocalcarculture();
     results = results.concat(SocalcarcultureResp.result);
     await SocalcarcultureResp.browser.close();
 
+    retry = 0;
     let DuponRes = await getDataFromhttpsDupontregistry();
     results = results.concat(DuponRes.result);
     await DuponRes.browser.close();
 
+    // retry = 0;
     // let thermotorRes = await processDataFromThemotoringdiary();
     // results = results.concat(thermotorRes.result);
     // await thermotorRes.browser.close();
 
+    // retry = 0;
     // let MiclasicoResp = await processDataFromMiclasico();
     // results = results.concat(MiclasicoResp.result);
     // await MiclasicoResp.browser.close();
 
+    // retry = 0;
     // let aceCafeResp = await processDataFromAcecafe();
     // results = results.concat(aceCafeResp.result);
     // await aceCafeResp.browser.close();
 
+    // retry = 0;
     // let hemmingsResult = await processDataFromHemmings();
     // results = results.concat(hemmingsResult.result);
     // await hemmingsResult.browser.close();
 
+    // retry = 0;
     // let everyCarShowRes = await processDataFromEveryCarShow();
     // results = results.concat(everyCarShowRes.result);
     // await everyCarShowRes.browser.close();
 
-    // note: more than 4000 events, will take very long time
+    // note: more than 4000 events, this will take very long time
+
+    // retry = 0;
     // let flaCarsShowResp = await processDataFromFlaCarsShows();
     // results = results.concat(flaCarsShowResp.result);
     // await flaCarsShowResp.browser.close();
@@ -199,8 +212,16 @@ async function getDataFromhttpsDupontregistry() {
             await new Promise(resolve => setTimeout(resolve, 2000));
         } while (currentPage <= pagesCount);
 
-    } catch (e) {
-        console.log(e);
+    } catch (error) {
+        console.log(error);
+        if (error.name === "TimeoutError" && ++retry <= MAX_RETRY) {
+            browser.close();
+            console.log("Timeout error retrying....")
+            retryResponse = (await getDataFromhttpsDupontregistry());
+            results = retryResponse.result;
+            retryResponse.browser.close();
+        }
+        browser.close();
     }
     console.log(results);
     console.log("pulled ", results.length, " events");
@@ -230,17 +251,6 @@ async function processDataFromEveryCarShow() {
             req.continue();
         }
     });
-
-    try {
-        await page.goto('http://everycarshow.com/events/');
-    } catch (error) {
-        console.log(error);
-        return {
-            'result': [],
-            'browser': browser
-        }
-    }
-    console.log("started fetching data from  http://everycarshow.com/events/");
     return await getDataFromEveryCarShow(page, browser, []);
 }
 async function getDataFromNorcalcarculture() {
@@ -331,8 +341,16 @@ async function getDataFromNorcalcarculture() {
             }
             return results;
         });
-    } catch (e) {
-        console.log(e);
+    } catch (error) {
+        console.log(error);
+        if (error.name === "TimeoutError" && ++retry <= MAX_RETRY) {
+            browser.close();
+            console.log("Timeout error retrying....")
+            retryResponse = (await getDataFromNorcalcarculture());
+            results = retryResponse.result;
+            retryResponse.browser.close();
+        }
+        browser.close();
     }
     console.log(results);
     console.log("pulled " + results.length + " events");
@@ -343,23 +361,23 @@ async function getDataFromNorcalcarculture() {
 }
 
 async function getDataFromEveryCarShow(page, browser, results) {
-    var currentPage = 1;
-    let eventsEl = (await page.$$(".tribe-events-list .tribe-events-loop"));
-    let events = [];
-    
-    if (eventsEl && eventsEl[0]) {
-        events = eventsEl[0];
-    } else {
-        // if page doesn't contain events then skip it
-        return {
-            'result': [],
-            'browser': browser
-        }
-    }
-
-
-
     try {
+        await page.goto('http://everycarshow.com/events/');
+        console.log("started fetching data from  http://everycarshow.com/events/");
+        var currentPage = 1;
+        let eventsEl = (await page.$$(".tribe-events-list .tribe-events-loop"));
+        let events = [];
+
+        if (eventsEl && eventsEl[0]) {
+            events = eventsEl[0];
+        } else {
+            // if page doesn't contain events then skip it
+            return {
+                'result': [],
+                'browser': browser
+            }
+        }
+
         // loop while we have events
         while (events) {
 
@@ -475,8 +493,16 @@ async function getDataFromEveryCarShow(page, browser, results) {
             await new Promise(resolve => setTimeout(resolve, 2000));
             events = (await page.$$(".tribe-events-list .tribe-events-loop"))[0];
         };
-    } catch (e) {
-        console.log(e);
+    } catch (error) {
+        console.log(error);
+        if (error.name === "TimeoutError" && ++retry <= MAX_RETRY) {
+            browser.close();
+            console.log("Timeout error retrying....")
+            retryResponse = (await processDataFromEveryCarShow());
+            results = retryResponse.result;
+            retryResponse.browser.close();
+        }
+        browser.close();
     }
     console.log(results);
     console.log("pulled " + results.length + " events");
@@ -487,19 +513,22 @@ async function getDataFromEveryCarShow(page, browser, results) {
 }
 
 async function getDataFromHemmings(page, browser, results) {
-    let closeBtn = await page.$x("//button[contains(text(), 'No Thanks')]");
-    if (closeBtn && closeBtn[0]) {
-        await closeBtn[0].click();
-    }
-
-    var eventCount = 0;
-    let events = (await page.$$("#results_list .mevent_box"));
-
-    if (!events) {
-        return;
-    }
-
     try {
+        await page.goto('https://www.hemmings.com/calendar');
+        console.log("started fetching data from https://www.hemmings.com/calendar");
+
+        let closeBtn = await page.$x("//button[contains(text(), 'No Thanks')]");
+        if (closeBtn && closeBtn[0]) {
+            await closeBtn[0].click();
+        }
+
+        var eventCount = 0;
+        let events = (await page.$$("#results_list .mevent_box"));
+
+        if (!events) {
+            return;
+        }
+
         // loop while we have events
         while (events.length) {
 
@@ -582,8 +611,16 @@ async function getDataFromHemmings(page, browser, results) {
             await new Promise(resolve => setTimeout(resolve, 2000));
             events = (await page.$$("#results_list .mevent_box"));
         };
-    } catch (e) {
-        console.log(e);
+    } catch (error) {
+        console.log(error);
+        if (error.name === "TimeoutError" && ++retry <= MAX_RETRY) {
+            browser.close();
+            console.log("Timeout error retrying....")
+            retryResponse = (await processDataFromHemmings());
+            results = retryResponse.result;
+            retryResponse.browser.close();
+        }
+        browser.close();
     }
     console.log(results);
     console.log("pulled " + results.length + " events");
@@ -594,10 +631,12 @@ async function getDataFromHemmings(page, browser, results) {
 }
 
 async function getDataFromThemotoringdiary(page, browser, results) {
-    var currentPage = 1;
-    let events = (await page.$$("#tribe-events .tribe-events-loop .type-tribe_events"));
-
     try {
+        await page.goto('https://www.themotoringdiary.com/');
+        console.log("pulling data for https://www.themotoringdiary.com/");
+        var currentPage = 1;
+        let events = (await page.$$("#tribe-events .tribe-events-loop .type-tribe_events"));
+
         // loop while we have events
         while (events.length) {
 
@@ -694,7 +733,15 @@ async function getDataFromThemotoringdiary(page, browser, results) {
             events = (await page.$$("#tribe-events .tribe-events-loop .type-tribe_events"));
         };
     } catch (error) {
-        console.log(error)
+        console.log(error);
+        if (error.name === "TimeoutError" && ++retry <= MAX_RETRY) {
+            browser.close();
+            console.log("Timeout error retrying....")
+            retryResponse = (await processDataFromThemotoringdiary());
+            results = retryResponse.result;
+            retryResponse.browser.close();
+        }
+        browser.close();
     }
     console.log(results);
     console.log("pulled " + results.length + " events");
@@ -706,6 +753,8 @@ async function getDataFromThemotoringdiary(page, browser, results) {
 
 async function getDataFromAtodomotor(page, browser, results) {
     try {
+        await page.goto('https://www.atodomotor.com/agenda/2019');
+
         let eventBox = await page.$$('.listBox');
         for (var i = 0; i < eventBox.length; i++) {
             let startDate = "", endDate = "", title = "";
@@ -767,6 +816,14 @@ async function getDataFromAtodomotor(page, browser, results) {
         }
     } catch (error) {
         console.log(error);
+        if (error.name === "TimeoutError" && ++retry <= MAX_RETRY) {
+            browser.close();
+            console.log("Timeout error retrying....")
+            retryResponse = (await processDataFromAtodomotor());
+            results = retryResponse.result;
+            retryResponse.browser.close();
+        }
+        browser.close();
     }
     console.log("results .... ", results);
     console.log("pulled ", results.length, " results");
@@ -779,6 +836,8 @@ async function getDataFromAtodomotor(page, browser, results) {
 
 async function getDataFromSocalCarCulture(page, browser, results) {
     try {
+        await page.goto('http://www.socalcarculture.com/events.html');
+
         results = await page.evaluate(() => {
             let results = [];
             let trEl = document.querySelectorAll('#Layer3 table tbody tr');
@@ -881,6 +940,14 @@ async function getDataFromSocalCarCulture(page, browser, results) {
         });
     } catch (error) {
         console.log(error);
+        if (error.name === "TimeoutError" && ++retry <= MAX_RETRY) {
+            browser.close();
+            console.log("Timeout error retrying....")
+            retryResponse = (await processDataFromSocalcarculture());
+            results = retryResponse.result;
+            retryResponse.browser.close();
+        }
+        browser.close();
     }
     console.log(results);
     console.log("pulled " + results.length + " events");
@@ -894,6 +961,8 @@ async function getDataFromMiclasico(page, browser) {
     let results = [];
 
     try {
+        await page.goto('https://www.miclasico.com/calendario');
+
         // get all events urls from current page            
         let eventUrls = await page.evaluate(() => {
             let newUrls = [];
@@ -1030,6 +1099,14 @@ async function getDataFromMiclasico(page, browser) {
         }
     } catch (error) {
         console.log(error);
+        if (error.name === "TimeoutError" && ++retry <= MAX_RETRY) {
+            browser.close();
+            console.log("Timeout error retrying....")
+            retryResponse = (await processDataFromMiclasico());
+            results = retryResponse.result;
+            retryResponse.browser.close();
+        }
+        browser.close();
     }
     console.log(results)
     console.log("pulled " + results.length + " results");
@@ -1127,7 +1204,15 @@ async function getDataFromAceCafe(page, browser) {
             results = results.concat(pageResults);
         }
     } catch (error) {
-        console.log(error)
+        console.log(error);
+        if (error.name === "TimeoutError" && ++retry <= MAX_RETRY) {
+            browser.close();
+            console.log("Timeout error retrying....")
+            retryResponse = (await processDataFromAcecafe());
+            results = retryResponse.result;
+            retryResponse.browser.close();
+        }
+        browser.close();
     }
     console.log(results)
     console.log("pulled " + results.length + " results");
@@ -1295,6 +1380,14 @@ async function getDataFromFlaCarsShows(page, browser) {
         }
     } catch (error) {
         console.log(error);
+        if (error.name === "TimeoutError" && ++retry <= MAX_RETRY) {
+            browser.close();
+            console.log("Timeout error retrying....")
+            retryResponse = (await processDataFromFlaCarsShows());
+            results = retryResponse.result;
+            retryResponse.browser.close();
+        }
+        browser.close();
     }
     console.log(results)
     console.log("pulled " + results.length + " results");
@@ -1325,17 +1418,6 @@ async function processDataFromHemmings() {
         }
     });
 
-    try {
-        await page.goto('https://www.hemmings.com/calendar');
-    } catch (error) {
-        console.log(error);
-        return {
-            'result': [],
-            'browser': browser
-        }
-    }
-    
-    console.log("started fetching data from https://www.hemmings.com/calendar");
     return await getDataFromHemmings(page, browser, []);
 }
 
@@ -1360,16 +1442,6 @@ async function processDataFromThemotoringdiary() {
         }
     });
 
-    try {
-        await page.goto('https://www.themotoringdiary.com/');
-    } catch (error) {
-        console.log(error);
-        return {
-            'result': [],
-            'browser': browser
-        }
-    }
-    console.log("pulling data for https://www.themotoringdiary.com/");
     return await getDataFromThemotoringdiary(page, browser, []);
 }
 async function processDataFromAtodomotor() {
@@ -1381,16 +1453,6 @@ async function processDataFromAtodomotor() {
     });
     const page = await browser.newPage();
     await page.setViewport({ width: 1366, height: 700 });
-
-    try {
-        await page.goto('https://www.atodomotor.com/agenda/2019');
-    } catch (error) {
-        console.log(error);
-        return {
-            'result': [],
-            'browser': browser
-        }
-    }
 
     return await getDataFromAtodomotor(page, browser, []);
 }
@@ -1404,16 +1466,6 @@ async function processDataFromSocalcarculture() {
     });
     const page = await browser.newPage();
     await page.setViewport({ width: 1366, height: 700 });
-
-    try {
-        await page.goto('http://www.socalcarculture.com/events.html');
-    } catch (error) {
-        console.log(error);
-        return {
-            'result': [],
-            'browser': browser
-        }
-    }
 
     return await getDataFromSocalCarCulture(page, browser, []);
 }
@@ -1440,16 +1492,6 @@ async function processDataFromMiclasico() {
             req.continue();
         }
     });
-
-    try {
-        await page.goto('https://www.miclasico.com/calendario');
-    } catch (error) {
-        console.log(error);
-        return {
-            'result': [],
-            'browser': browser
-        }
-    }
 
     return await getDataFromMiclasico(page, browser);
 
