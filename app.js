@@ -64,12 +64,12 @@ async function init() {
     // await flaCarsShowResp.browser.close();
 
     console.log("Total " + results.length + " events pulled.");
-    // csvWriter
-    //     .writeRecords(results)
-    //     .then(() => {
-    //         console.log('The CSV file was written successfully');
-    //         generateLatLongs({timestamp: timestamp});
-    //     });
+    csvWriter
+        .writeRecords(results)
+        .then(() => {
+            console.log('The CSV file was written successfully');
+            generateLatLongs({timestamp: timestamp});
+        });
 
 }
 
