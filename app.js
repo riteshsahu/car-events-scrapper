@@ -171,6 +171,8 @@ async function getDataFromhttpsDupontregistry() {
                     let photoEl = document.querySelector('.profile-cover.parallax-bg.profile-cover-image');
                     if (photoEl) {
                         return photoEl.getAttribute("data-jarallax-original-styles");
+                    } else {
+                        return "";
                     }
                 });
 
@@ -666,6 +668,8 @@ async function getDataFromThemotoringdiary(page, browser, results) {
                     let photoEl = document.querySelector('#tribe-events .tribe-events-event-image img');
                     if (photoEl) {
                         return photoEl.getAttribute("src");
+                    } else {
+                        return "";
                     }
                 });
 
@@ -1155,11 +1159,15 @@ async function getDataFromFlaCarsShows(page, browser) {
 
                 let currentDates = await page.evaluate(() => {
                     let datesEl = [].slice.call(document.querySelectorAll('#wp-calendar tbody tr > td.event'));
-                    return datesEl.map(dateEl => {
-                        let date = dateEl.innerText;
-                        date = ('0' + date).slice(-2);
-                        return date;
-                    })
+                    if (datesEl.length > 0) {
+                        return datesEl.map(dateEl => {
+                            let date = dateEl.innerText;
+                            date = ('0' + date).slice(-2);
+                            return date;
+                        })
+                    } else {
+                        return [];
+                    }
                 });
 
                 // loop through dates
