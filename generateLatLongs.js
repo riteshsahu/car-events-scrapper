@@ -48,19 +48,31 @@ async function generateLatLongs(options) {
         let requestId = await getRequestId(geocoderData);
 
         // check status of resutls
+        console.log("Generating latitude and longigude...");
         let status = await checkStatus(requestId);
         while (status !== "completed") {
+            console.log("Status: " + status);
             await new Promise(resolve => setTimeout(resolve, 5000));    // wait 5 seconds
             status = await checkStatus(requestId);
         }
+        console.log("Status: " + status);
 
         // when status is completed get results and convert to json
+        console.log("Fetching Results...");
         let geoCoderApiResults = await getData(requestId);
         await csvtojson(geoCoderApiResults)
             .fromString(geoCoderApiResults)
             .then((data) => {
                 geoCoderApiResults = data;
             });
+
+        // remove duplicate results
+        for (let i = 0; i < geoCoderApiResults.length - 1; i++) {
+            if (geoCoderApiResults[i].recId === geoCoderApiResults[i+1].recId) {
+                geoCoderApiResults.splice(i+1, 1);
+                i = i - 1;
+            }
+        }
 
         // add latitude and longitude to each csv record
         for (let i = 0; i < csvRecords.length; i++) {
@@ -87,7 +99,7 @@ function getRequestId(data){
         headers: {'Content-Type': 'text/plain', 'charset':'UTF-8'}
     }
 
-    return fetch(`https://batch.geocoder.api.here.com/6.2/jobs?app_code=${APP_CODE}&app_id=${APP_ID}&action=run&header=true&inDelim=|&outDelim=,&outCols=recId,latitude,longitude,locationLabel&outputcombined=true&language=de-DE`, options)
+    return fetch(`https://batch.geocoder.api.here.com/6.2/jobs?app_code=${APP_CODE}&app_id=${APP_ID}&mode=retrieveAddresses&action=run&header=true&inDelim=|&outDelim=,&outCols=recId,latitude,longitude,locationLabel&outputcombined=true&language=de-DE`, options)
         .then(res => res.text())
         .then(body => {
             let data = parser.toJson(body, { object: true });

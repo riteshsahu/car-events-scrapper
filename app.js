@@ -26,17 +26,17 @@ async function init() {
     results = results.concat(NorcalRes.result);
     await NorcalRes.browser.close();
 
-    // let atodomotoRep = await processDataFromAtodomotor();
-    // results = results.concat(atodomotoRep.result);
-    // await atodomotoRep.browser.close();
+    let atodomotoRep = await processDataFromAtodomotor();
+    results = results.concat(atodomotoRep.result);
+    await atodomotoRep.browser.close();
 
-    // let SocalcarcultureResp = await processDataFromSocalcarculture();
-    // results = results.concat(SocalcarcultureResp.result);
-    // await SocalcarcultureResp.browser.close();
+    let SocalcarcultureResp = await processDataFromSocalcarculture();
+    results = results.concat(SocalcarcultureResp.result);
+    await SocalcarcultureResp.browser.close();
 
-    // let DuponRes = await getDataFromhttpsDupontregistry();
-    // results = results.concat(DuponRes.result);
-    // await DuponRes.browser.close();
+    let DuponRes = await getDataFromhttpsDupontregistry();
+    results = results.concat(DuponRes.result);
+    await DuponRes.browser.close();
 
     // let thermotorRes = await processDataFromThemotoringdiary();
     // results = results.concat(thermotorRes.result);
@@ -85,15 +85,16 @@ async function getDataFromhttpsDupontregistry() {
 
     const page = await browser.newPage();
     await page.setViewport({ width: 1366, height: 700 });
-    await page.goto('https://directory.dupontregistry.com/explore/?type=event&sort=upcoming');
-    console.log("Started to fetch data from directory.dupontregistry.com ");
-
-    var currentPage = 1;
-    await page.waitForSelector('.job-manager-pagination ul li');
-    var pagesCount = (await page.$$(".job-manager-pagination ul li")).length - 1;
 
     let results = []
     try {
+        await page.goto('https://directory.dupontregistry.com/explore/?type=event&sort=upcoming', { waitUntil: 'domcontentloaded' });
+        console.log("Started to fetch data from directory.dupontregistry.com ");
+
+        var currentPage = 1;
+        await page.waitForSelector('.job-manager-pagination ul li');
+        var pagesCount = (await page.$$(".job-manager-pagination ul li")).length - 1;
+
         do {
             let urls = await page.evaluate(() => {
                 let newUrls = [];
@@ -198,7 +199,6 @@ async function getDataFromhttpsDupontregistry() {
 
     } catch (e) {
         console.log(e);
-        results = []
     }
     console.log(results);
     console.log("pulled ", results.length, " events");
@@ -206,7 +206,6 @@ async function getDataFromhttpsDupontregistry() {
         'result': results,
         'browser': browser
     }
-
 }
 
 async function processDataFromEveryCarShow() {
@@ -230,7 +229,15 @@ async function processDataFromEveryCarShow() {
         }
     });
 
-    await page.goto('http://everycarshow.com/events/');
+    try {
+        await page.goto('http://everycarshow.com/events/');
+    } catch (error) {
+        console.log(error);
+        return {
+            'result': [],
+            'browser': browser
+        }
+    }
     console.log("started fetching data from  http://everycarshow.com/events/");
     return await getDataFromEveryCarShow(page, browser, []);
 }
@@ -244,10 +251,11 @@ async function getDataFromNorcalcarculture() {
 
     const page = await browser.newPage();
     await page.setViewport({ width: 1366, height: 700 });
-    await page.goto('https://norcalcarculture.com/', {waitUntil: 'load', timeout: 0});
-    console.log("Started to fetch data from https://norcalcarculture.com ");
     let results = [];
     try {
+        await page.goto('https://norcalcarculture.com/', {waitUntil: 'load'});
+        console.log("Started to fetch data from https://norcalcarculture.com ");
+
         results = await page.evaluate(() => {
             let results = [];
             let events = document.querySelectorAll('.entry-content p');
@@ -275,7 +283,7 @@ async function getDataFromNorcalcarculture() {
                 }
 
                 date = date.substring(date.indexOf(",")).trim();
-                let startEndDates = date.match(/(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|(Nov|Dec)(?:ember)?) [0-9]{1,2}(th|nd|rd)?/ig);
+                let startEndDates = date.match(/(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|(Nov|Dec)(?:ember)?) [0-9]{1,2}(th|nd|rd|st)?/ig);
                 let startEndTimes = date.match(/[0-9]{1,2}(:?[0-9]{1,2})?(am|pm)/ig);
                 let currentYear = (new Date).getFullYear();
 
@@ -323,7 +331,6 @@ async function getDataFromNorcalcarculture() {
         });
     } catch (e) {
         console.log(e);
-        results = [];
     }
     console.log(results);
     console.log("pulled " + results.length + " events");
@@ -335,7 +342,20 @@ async function getDataFromNorcalcarculture() {
 
 async function getDataFromEveryCarShow(page, browser, results) {
     var currentPage = 1;
-    let events = (await page.$$(".tribe-events-list .tribe-events-loop"))[0];
+    let eventsEl = (await page.$$(".tribe-events-list .tribe-events-loop"));
+    let events = [];
+    
+    if (eventsEl && eventsEl[0]) {
+        events = eventsEl[0];
+    } else {
+        // if page doesn't contain events then skip it
+        return {
+            'result': [],
+            'browser': browser
+        }
+    }
+
+
 
     try {
         // loop while we have events
@@ -353,7 +373,7 @@ async function getDataFromEveryCarShow(page, browser, results) {
 
             // visit each page and extract information 
             for (let i = 0; i < urls.length; i++) {
-                await page.goto(urls[i], { waitUntil: 'domcontentloaded' });
+                await page.goto(urls[i], { waitUntil: 'domcontentloaded'});
 
                 await new Promise(resolve => setTimeout(resolve, 2000));
 
@@ -367,37 +387,43 @@ async function getDataFromEveryCarShow(page, browser, results) {
                 }
 
                 // get description
-                let descriptionEl = await page.$$('.tribe-events-single-event-description');
-                if (descriptionEl && descriptionEl[0]) {
-                    description = await (await descriptionEl[0].getProperty('innerText')).jsonValue();
-                    description = description.substring(0, description.lastIndexOf("FacebookTwitterGoogle+Email"));
-                }
+                description = await page.evaluate(async () => {
+                    let descEl = document.querySelector('.tribe-events-single-event-description');
+                    if (descEl) {
+                        let desc = descEl.innerText;
+                        desc = desc.replace("Facebook\nTwitter\nGoogle+\nEmail", "");
+                        return desc;
+                    } else {
+                        return "";
+                    }
+                });
 
                 // get event start and end date
                 let fullStartDateEl = "", fullEndDateEl = "";
+                let fullDateText = "";
                 fullStartDateEl = await page.$$('.tribe-events-abbr.tribe-events-start-date.published.dtstart');
                 if (fullStartDateEl && fullStartDateEl[0]) {
+                    let fullStartDateText = await (await fullStartDateEl[0].getProperty('innerText')).jsonValue();
+                    fullStartDateText = fullStartDateText.substring(0, fullStartDateText.indexOf("Recurring Event")-2).trim()
+                    
                     let timeEl = await page.$$('.tribe-events-abbr.tribe-events-start-time.published.dtstart');
-                    let time = "", startTime = "", endTime = "";
+                    let timeText = "";
                     if (timeEl && timeEl[0]) {
-                        time = await (await timeEl[0].getProperty('innerText')).jsonValue();
-                        startTime = time.substring(0, time.indexOf("-") - 1);
-                        endTime = time.substring(time.indexOf("-") + 2);
+                        timeText = await (await timeEl[0].getProperty('innerText')).jsonValue();
                     }
 
-                    let fullStartDateText = await (await fullStartDateEl[0].getProperty('innerText')).jsonValue();
-                    fullStartDateText = fullStartDateText.replace(" \n|Recurring Event (See all)", "");
-                    startDate = `${fullStartDateText} ${startTime}`;
-                    endDate = `${fullStartDateText} ${endTime}`;
+                    fullDateText = fullStartDateText + " " + timeText;
+                    [startDate, endDate] = getStartAndEndDates(fullDateText);
                 } else {
                     fullStartDateEl = await page.$$('.tribe-events-abbr.tribe-events-start-datetime.published.dtstart');
                     fullEndDateEl = await page.$$('.tribe-events-abbr.dtend');
                     if (fullStartDateEl && fullStartDateEl[0]) {
-                        startDate = await (await fullStartDateEl[0].getProperty('innerText')).jsonValue();
+                        fullDateText += await (await fullStartDateEl[0].getProperty('innerText')).jsonValue();
                     }
                     if (fullEndDateEl && fullEndDateEl[0]) {
-                        endDate = await (await fullEndDateEl[0].getProperty('innerText')).jsonValue();
+                        fullDateText += " " +  await (await fullEndDateEl[0].getProperty('innerText')).jsonValue();
                     }
+                    [startDate, endDate] = getStartAndEndDates(fullDateText);
                 }
 
                 // get location
@@ -449,7 +475,6 @@ async function getDataFromEveryCarShow(page, browser, results) {
         };
     } catch (e) {
         console.log(e);
-        results = []
     }
     console.log(results);
     console.log("pulled " + results.length + " events");
@@ -467,6 +492,10 @@ async function getDataFromHemmings(page, browser, results) {
 
     var eventCount = 0;
     let events = (await page.$$("#results_list .mevent_box"));
+
+    if (!events) {
+        return;
+    }
 
     try {
         // loop while we have events
@@ -553,7 +582,6 @@ async function getDataFromHemmings(page, browser, results) {
         };
     } catch (e) {
         console.log(e);
-        results = []
     }
     console.log(results);
     console.log("pulled " + results.length + " events");
@@ -673,64 +701,68 @@ async function getDataFromThemotoringdiary(page, browser, results) {
 }
 
 async function getDataFromAtodomotor(page, browser, results) {
-    let eventBox = await page.$$('.listBox');
-    for (var i = 0; i < eventBox.length; i++) {
-        let startDate = "", endDate = "", title = "";
+    try {
+        let eventBox = await page.$$('.listBox');
+        for (var i = 0; i < eventBox.length; i++) {
+            let startDate = "", endDate = "", title = "";
 
-        // get title
-        let titleEl = await page.$$('.listBoxContent div[itemprop="name"]');
-        if (titleEl && titleEl[i]) {
-            title = await (await titleEl[i].getProperty('innerText')).jsonValue();
-        }
-
-        // get start and end date
-        let fullDateEl = await page.$$('.listBoxContent .listBoxSubtitle');
-        if (fullDateEl && fullDateEl[i]) {
-            let fullDateText = await (await fullDateEl[i].getProperty('innerText')).jsonValue();
-            // convert month to english language
-            let spanishMonthMatch = fullDateText.match(/\b(Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre|Noviembre|Diciembre)\b/ig);
-            if (spanishMonthMatch && spanishMonthMatch[0]) {
-                let englishMonth = convertMonthFromSpanishToEnglish(spanishMonthMatch[0]);
-                fullDateText = fullDateText.replace(spanishMonthMatch[0], englishMonth);
+            // get title
+            let titleEl = await page.$$('.listBoxContent div[itemprop="name"]');
+            if (titleEl && titleEl[i]) {
+                title = await (await titleEl[i].getProperty('innerText')).jsonValue();
             }
 
-            let monthMatch = fullDateText.match(/\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|(Nov|Dec)(?:ember)?)\b/ig);
-            let yearMatch = fullDateText.match(/\b[0-9]{4}\b/g);
-            let datesMatch = fullDateText.match(/\b[0-9]{1,2}\b/g);
-            if (datesMatch && datesMatch[0]) {
-                startDate = datesMatch[0];
-                if (monthMatch && monthMatch[0]) {
-                    startDate += " " + monthMatch[0];
-                }
-                if (yearMatch && yearMatch[0]) {
-                    startDate += " " + yearMatch[0];
+            // get start and end date
+            let fullDateEl = await page.$$('.listBoxContent .listBoxSubtitle');
+            if (fullDateEl && fullDateEl[i]) {
+                let fullDateText = await (await fullDateEl[i].getProperty('innerText')).jsonValue();
+                // convert month to english language
+                let spanishMonthMatch = fullDateText.match(/\b(Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre|Noviembre|Diciembre)\b/ig);
+                if (spanishMonthMatch && spanishMonthMatch[0]) {
+                    let englishMonth = convertMonthFromSpanishToEnglish(spanishMonthMatch[0]);
+                    fullDateText = fullDateText.replace(spanishMonthMatch[0], englishMonth);
                 }
 
-                if (datesMatch[1]) {
-                    endDate = datesMatch[1];
+                let monthMatch = fullDateText.match(/\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|(Nov|Dec)(?:ember)?)\b/ig);
+                let yearMatch = fullDateText.match(/\b[0-9]{4}\b/g);
+                let datesMatch = fullDateText.match(/\b[0-9]{1,2}\b/g);
+                if (datesMatch && datesMatch[0]) {
+                    startDate = datesMatch[0];
                     if (monthMatch && monthMatch[0]) {
-                        endDate += " " + monthMatch[0];
+                        startDate += " " + monthMatch[0];
                     }
                     if (yearMatch && yearMatch[0]) {
-                        endDate += " " + yearMatch[0];
+                        startDate += " " + yearMatch[0];
+                    }
+
+                    if (datesMatch[1]) {
+                        endDate = datesMatch[1];
+                        if (monthMatch && monthMatch[0]) {
+                            endDate += " " + monthMatch[0];
+                        }
+                        if (yearMatch && yearMatch[0]) {
+                            endDate += " " + yearMatch[0];
+                        }
                     }
                 }
+
             }
 
+            results.push({
+                "platform": "https://www.atodomotor.com/agenda/2019",
+                "title": title,
+                "description": "",
+                "location": "",
+                "contactPhone": "",
+                "startDate": startDate,
+                "endDate": endDate,
+                "photoUrl": "",
+                "eventUrl": "",
+                "contactEmail": "",
+            });
         }
-
-        results.push({
-            "platform": "https://www.atodomotor.com/agenda/2019",
-            "title": title,
-            "description": "",
-            "location": "",
-            "contactPhone": "",
-            "startDate": startDate,
-            "endDate": endDate,
-            "photoUrl": "",
-            "eventUrl": "",
-            "contactEmail": "",
-        });
+    } catch (error) {
+        console.log(error);
     }
     console.log("results .... ", results);
     console.log("pulled ", results.length, " results");
@@ -739,34 +771,6 @@ async function getDataFromAtodomotor(page, browser, results) {
         'browser': browser
     }
 
-}
-async function getDataFromOldRide(page) {
-    let rows = await page.$$('body > div.main_content > table > tbody > tr > td:nth-child(3) > table > tbody > tr:nth-child(5) > td > table > tbody > tr');
-    for (var i = 0; i < rows.length; i++) {
-        let tdList = await page.$$(`body > div.main_content > table > tbody > tr > td:nth-child(3) > table > tbody > tr:nth-child(5) > td > table > tbody > tr:nth-child(${i}) > td`)
-        for (var j = 0; j < tdList.length; j++) {
-            let tdAList = await page.$$(`body > div.main_content > table > tbody > tr > td:nth-child(3) > table > tbody > tr:nth-child(5) > td > table > tbody > tr:nth-child(${i}) > td:nth-child(${j}) > font > a`)
-            console.log("tdAList.length ... ", tdAList.length);
-            for (var k = 0; k < tdAList.length; i++) {
-                let title = await (await tdAList[i].getProperty('innerText')).jsonValue();
-                console.log("title ... ", title);
-            }
-        }
-    }
-
-    // let trEl = await page.$$('body > div.main_content > table > tbody > tr > td:nth-child(3) > table > tbody > tr');
-    // for( var i = 1 ; i < trEl.length ; i++){
-    //     let title="";
-    //     for ( var j = 0 ; j < 5;j++){
-    //         let titleEL = await page.$$(`body > div.main_content > table > tbody > tr > td:nth-child(3) > table > tbody > tr:nth-child(5) > td > table > tbody > tr:nth-child(${i}) > td:nth-child(${j}) > font > a`);
-    //         console.log("titleEl....",titleEL.length)
-    //         if(title && titleEL.length > 0){
-    //            title = await (await titleEl[0].getProperty('innerText')).jsonValue();
-    //         }
-
-    //     }
-    //     console.log("title .... ",title);
-    // }
 }
 
 async function getDataFromSocalCarCulture(page, browser, results) {
@@ -924,12 +928,12 @@ async function getDataFromMiclasico(page, browser) {
                     fullDateText = fullDateText.replace(re, englishMonth);
                 }
 
-                let monthDatesMatch = fullDateText.match(/\b[0-9]{1,2}(th|nd|rd)?\s(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|(Nov|Dec)(?:ember)?)\b/ig);
+                let monthDatesMatch = fullDateText.match(/\b[0-9]{1,2}(th|nd|rd|st)?\s(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|(Nov|Dec)(?:ember)?)\b/ig);
                 let yearsMatch = fullDateText.match(/\b[0-9]{4}\b/g);
                 let timesMatch = fullDateText.match(/\b([0-9]{1,2})(:?[0-9]{1,2})?\s?(a.?m.?|p.?m.?)\b/ig);
 
                 if (!(monthDatesMatch && monthDatesMatch[0])) {
-                    monthDatesMatch = fullDateText.match(/\b(Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre|Noviembre|Diciembre)\s[0-9]{1,2}(th|nd|rd)?\b/ig);
+                    monthDatesMatch = fullDateText.match(/\b(Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre|Noviembre|Diciembre)\s[0-9]{1,2}(th|nd|rd|st)?\b/ig);
                 }
 
                 if (monthDatesMatch && monthDatesMatch[0]) {
@@ -1136,7 +1140,7 @@ async function getDataFromFlaCarsShows(page, browser) {
 
     try {
         let pageURL = `https://flacarshows.com/events/event/on/${currentYear}`;
-        await page.goto(pageURL, {waitUntil: 'load', timeout: 0});
+        await page.goto(pageURL, {waitUntil: 'domcontentloaded'});
         await page.waitForSelector('#left-area .event');
         let eventsInCurrentYear = await page.$$("#left-area .event");
 
@@ -1159,7 +1163,7 @@ async function getDataFromFlaCarsShows(page, browser) {
                 // loop through dates
                 for (let i = 0; i < currentDates.length; i++) {
                     pageURL = `https://flacarshows.com/events/event/on/${currentYear}/${currentMonthText}/${currentDates[i]}`;
-                    await page.goto(pageURL, {waitUntil: 'load', timeout: 0});
+                    await page.goto(pageURL, {waitUntil: 'domcontentloaded'});
 
                     // get urls of all events on current page
                     let eventUrls = await page.evaluate(() => {
@@ -1175,7 +1179,7 @@ async function getDataFromFlaCarsShows(page, browser) {
 
                     // visit each event
                     for (let j = 0; j < eventUrls.length; j++) {
-                        await page.goto(eventUrls[j], {waitUntil: 'load', timeout: 0});
+                        await page.goto(eventUrls[j], {waitUntil: 'domcontentloaded'});
 
                         // scrap data from event page
                         let title = "", description = "", startDate = "", endDate = "", location = "";
@@ -1276,12 +1280,11 @@ async function getDataFromFlaCarsShows(page, browser) {
             currentMonth = 1;   // reset month
             currentMonthText = ('0' + currentMonth).slice(-2);
             pageURL = `https://flacarshows.com/events/event/on/${currentYear}`;
-            await page.goto(pageURL, {waitUntil: 'load', timeout: 0});
+            await page.goto(pageURL, {waitUntil: 'domcontentloaded'});
             eventsInCurrentYear = await page.$$("#left-area .event");
         }
     } catch (error) {
         console.log(error);
-        results = [];
     }
     console.log(results)
     console.log("pulled " + results.length + " results");
@@ -1312,7 +1315,16 @@ async function processDataFromHemmings() {
         }
     });
 
-    await page.goto('https://www.hemmings.com/calendar');
+    try {
+        await page.goto('https://www.hemmings.com/calendar');
+    } catch (error) {
+        console.log(error);
+        return {
+            'result': [],
+            'browser': browser
+        }
+    }
+    
     console.log("started fetching data from https://www.hemmings.com/calendar");
     return await getDataFromHemmings(page, browser, []);
 }
@@ -1338,7 +1350,15 @@ async function processDataFromThemotoringdiary() {
         }
     });
 
-    await page.goto('https://www.themotoringdiary.com/');
+    try {
+        await page.goto('https://www.themotoringdiary.com/');
+    } catch (error) {
+        console.log(error);
+        return {
+            'result': [],
+            'browser': browser
+        }
+    }
     console.log("pulling data for https://www.themotoringdiary.com/");
     return await getDataFromThemotoringdiary(page, browser, []);
 }
@@ -1351,32 +1371,21 @@ async function processDataFromAtodomotor() {
     });
     const page = await browser.newPage();
     await page.setViewport({ width: 1366, height: 700 });
-    await page.goto('https://www.atodomotor.com/agenda/2019');
+
+    try {
+        await page.goto('https://www.atodomotor.com/agenda/2019');
+    } catch (error) {
+        console.log(error);
+        return {
+            'result': [],
+            'browser': browser
+        }
+    }
 
     return await getDataFromAtodomotor(page, browser, []);
 }
 
-async function processDateForOldride() {
-    let URLS = ['https://www.oldride.com/events/alaska.html'];
-    for (var i = 0; i < URLS.length; i++) {
-        const browser = await puppeteer.launch({
-            headless: false,
-            networkIdleTimeout: 10000,
-            waitUntil: 'networkidle0',
-            args: ['--start-maximized', '--window-size=1366,700']
-        });
-        const page = await browser.newPage();
-        await page.setViewport({ width: 1366, height: 700 });
-        await page.goto(URLS[i]);
-
-        getDataFromOldRide(page);
-    }
-
-}
-
 async function processDataFromSocalcarculture() {
-    //let Url = ['https://www.oldride.com/events/alaska.html'];
-    // for (var i = 0; i < URLS.length; i++) {
     const browser = await puppeteer.launch({
         headless: false,
         networkIdleTimeout: 10000,
@@ -1385,10 +1394,18 @@ async function processDataFromSocalcarculture() {
     });
     const page = await browser.newPage();
     await page.setViewport({ width: 1366, height: 700 });
-    await page.goto('http://www.socalcarculture.com/events.html');
+
+    try {
+        await page.goto('http://www.socalcarculture.com/events.html');
+    } catch (error) {
+        console.log(error);
+        return {
+            'result': [],
+            'browser': browser
+        }
+    }
 
     return await getDataFromSocalCarCulture(page, browser, []);
-    // }
 }
 
 
@@ -1414,7 +1431,15 @@ async function processDataFromMiclasico() {
         }
     });
 
-    await page.goto('https://www.miclasico.com/calendario');
+    try {
+        await page.goto('https://www.miclasico.com/calendario');
+    } catch (error) {
+        console.log(error);
+        return {
+            'result': [],
+            'browser': browser
+        }
+    }
 
     return await getDataFromMiclasico(page, browser);
 
@@ -1458,41 +1483,46 @@ async function processDataFromFlaCarsShows() {
 }
 
 function getStartAndEndDates(fullDateText) {
-    let monthDatesMatch = fullDateText.match(/\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|(Nov|Dec)(?:ember)?) [0-9]{1,2}(th|nd|rd)?\b/ig);
-    let yearsMatch = fullDateText.match(/\b[0-9]{4}\b/g);
-    let timesMatch = fullDateText.match(/\b([0-9]{1,2})(:?[0-9]{1,2})?\s?(a.?m.?|p.?m.?)\b/ig);
     let startDate = "", endDate = "";
+    try {
+        let monthDatesMatch = fullDateText.match(/\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|(Nov|Dec)(?:ember)?) [0-9]{1,2}(th|nd|rd|st)?\b/ig);
+        let yearsMatch = fullDateText.match(/\b[0-9]{4}\b/g);
+        let timesMatch = fullDateText.match(/\b([0-9]{1,2})(:?[0-9]{1,2})?\s?(a.?m.?|p.?m.?)\b/ig);
 
-    if (!(monthDatesMatch && monthDatesMatch[0])) {
-        monthDatesMatch = fullDateText.match(/\b[0-9]{1,2}(th|nd|rd)?\s(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|(Nov|Dec)(?:ember)?)\b/ig);
-    }
-
-    if (monthDatesMatch && monthDatesMatch[0]) {
-        startDate = monthDatesMatch[0];
-        if (yearsMatch && yearsMatch[0]) {
-            startDate += " " + yearsMatch[0];
+        if (!(monthDatesMatch && monthDatesMatch[0])) {
+            monthDatesMatch = fullDateText.match(/\b[0-9]{1,2}(th|nd|rd|st)?\s(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|(Nov|Dec)(?:ember)?)\b/ig);
         }
 
-        if (monthDatesMatch[1]) {
-            endDate = monthDatesMatch[1];
-        } else {
+        if (monthDatesMatch && monthDatesMatch[0]) {
+            startDate = monthDatesMatch[0];
+            if (yearsMatch && yearsMatch[0]) {
+                startDate += " " + yearsMatch[0];
+            }
+
+            if (monthDatesMatch[1]) {
+                endDate = monthDatesMatch[1];
+            } else if (monthDatesMatch && monthDatesMatch[0]) {
+                if (fullDateText.includes("to") || fullDateText.includes("-")) {
+                    endDate = monthDatesMatch[0];
+                }
+            }
+
             if (fullDateText.includes("to") || fullDateText.includes("-")) {
-                endDate = monthDatesMatch[0];
+                if (yearsMatch && yearsMatch[1]) {
+                    endDate += " " + yearsMatch[1];
+                } else if (yearsMatch && yearsMatch[0]) {
+                    endDate += " " + yearsMatch[0];
+                }
+            }
+
+            if (timesMatch && timesMatch[0] && timesMatch[1]) {
+                startDate += " " + timesMatch[0];
+                endDate += " " + timesMatch[1];
             }
         }
-
-        if (fullDateText.includes("to") || fullDateText.includes("-")) {
-            if (yearsMatch && yearsMatch[1]) {
-                endDate += " " + yearsMatch[1];
-            } else {
-                endDate += " " + yearsMatch[0];
-            }
-        }
-
-        if (timesMatch && timesMatch[0] && timesMatch[1]) {
-            startDate += " " + timesMatch[0];
-            endDate += " " + timesMatch[1];
-        }
+    } catch (error) {
+        console.log(error);
+        return ["", ""];
     }
 
     return [startDate, endDate];
