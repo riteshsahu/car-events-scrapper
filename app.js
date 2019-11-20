@@ -64,12 +64,12 @@ async function init() {
     // await flaCarsShowResp.browser.close();
 
     console.log("Total " + results.length + " events pulled.");
-    csvWriter
-        .writeRecords(results)
-        .then(() => {
-            console.log('The CSV file was written successfully');
-            generateLatLongs({timestamp: timestamp});
-        });
+    // csvWriter
+    //     .writeRecords(results)
+    //     .then(() => {
+    //         console.log('The CSV file was written successfully');
+    //         generateLatLongs({timestamp: timestamp});
+    //     });
 
 }
 
@@ -486,7 +486,7 @@ async function getDataFromEveryCarShow(page, browser, results) {
 
 async function getDataFromHemmings(page, browser, results) {
     let closeBtn = await page.$x("//button[contains(text(), 'No Thanks')]");
-    if (closeBtn) {
+    if (closeBtn && closeBtn[0]) {
         await closeBtn[0].click();
     }
 
@@ -1005,6 +1005,8 @@ async function getDataFromMiclasico(page, browser) {
                 let photoEl = document.querySelector('.jev_imagethumb1');
                 if (photoEl) {
                     return "https:" + photoEl.getAttribute("src");
+                } else {
+                    return "";
                 }
             });
 
