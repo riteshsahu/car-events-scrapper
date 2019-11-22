@@ -4,28 +4,6 @@ const csvtojson = require('csvtojson');
 const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 const APP_CODE = "uVpeMH7xQCESU28Te7NHvw";
 const APP_ID = "fcCDTt5BOM4w825JePpQ";
-let timestamp = "";
-
-const csvWriter = createCsvWriter({
-    path: `final_output_${timestamp}.csv`,
-    header: [
-        { id: 'platform', title: 'platform' },
-        { id: 'title', title: 'title' },
-        { id: 'description', title: 'description' },
-        { id: 'contactPhone', title: 'contactPhone' },
-        { id: 'startDate', title: 'startDate' },
-        { id: 'endDate', title: 'endDate' },
-        { id: 'photoUrl', title: 'photoUrl' },
-        { id: 'eventUrl', title: 'eventUrl' },
-        { id: 'contactEmail', title: 'contactEmail' },
-        { id: 'location', title: 'location' },
-        { id: 'latitude', title: 'latitude' },
-        { id: 'longitude', title: 'longitude' },
-    ]
-});
-
-
-
 
 async function generateLatLongs(options) {
     try {
@@ -81,7 +59,24 @@ async function generateLatLongs(options) {
         }
 
         // write records to new csv file
-        timestamp = options.timestamp;
+        const csvWriter = createCsvWriter({
+            path: `final_output_${options.timestamp}.csv`,
+            header: [
+                { id: 'platform', title: 'platform' },
+                { id: 'title', title: 'title' },
+                { id: 'description', title: 'description' },
+                { id: 'contactPhone', title: 'contactPhone' },
+                { id: 'startDate', title: 'startDate' },
+                { id: 'endDate', title: 'endDate' },
+                { id: 'photoUrl', title: 'photoUrl' },
+                { id: 'eventUrl', title: 'eventUrl' },
+                { id: 'contactEmail', title: 'contactEmail' },
+                { id: 'location', title: 'location' },
+                { id: 'latitude', title: 'latitude' },
+                { id: 'longitude', title: 'longitude' },
+            ]
+        });
+
         csvWriter
         .writeRecords(csvRecords)
         .then(() => {
