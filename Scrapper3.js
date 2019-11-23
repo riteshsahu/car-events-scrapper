@@ -2,6 +2,7 @@ const puppeteer = require('puppeteer');
 const generateLatLongs = require("./generateLatLongs");
 const timestamp = new Date().getTime();
 const MAX_RETRY = 3;
+const TOTAL_MONTHS_TO_SCRAP_FOR = 5;
 var retry = 0;
 const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 
@@ -39,7 +40,7 @@ async function init() {
         });
 }
 
-init();
+// init();
 
 async function getDataFromFlaCarsShows(page, browser) {
     let results = [];
@@ -47,6 +48,7 @@ async function getDataFromFlaCarsShows(page, browser) {
     let currentMonth = currentDate.getMonth() + 1;
     let currentMonthText = ('0' + currentMonth).slice(-2);
     let currentYear = currentDate.getFullYear();
+    let months_count = TOTAL_MONTHS_TO_SCRAP_FOR;    // total number of months to scrap for
 
     try {
         let pageURL = `https://flacarshows.com/events/event/on/${currentYear}`;
@@ -57,7 +59,7 @@ async function getDataFromFlaCarsShows(page, browser) {
         // loop through year while we have events in current year
         while (eventsInCurrentYear.length) {
             // loop through months
-            while (currentMonth <= 12) {
+            while (currentMonth <= 12 && months_count > 0) {
                 pageURL = `https://flacarshows.com/events/event/on/${currentYear}/${currentMonthText}`;
                 await page.goto(pageURL, { waitUntil: 'domcontentloaded' });
 
@@ -189,6 +191,8 @@ async function getDataFromFlaCarsShows(page, browser) {
                 // increase month
                 currentMonth++;
                 currentMonthText = ('0' + currentMonth).slice(-2);
+                // decrease months count
+                months_count--;
             }
             currentYear++;
             currentMonth = 1;   // reset month
