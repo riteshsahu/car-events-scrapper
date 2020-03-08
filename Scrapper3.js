@@ -49,7 +49,6 @@ async function getDataFromFlaCarsShows(page, browser) {
     let currentMonthText = ('0' + currentMonth).slice(-2);
     let currentYear = currentDate.getFullYear();
     let months_count = TOTAL_MONTHS_TO_SCRAP_FOR;    // total number of months to scrap for
-
     try {
         let pageURL = `https://flacarshows.com/events/event/on/${currentYear}`;
         await page.goto(pageURL, {waitUntil: 'domcontentloaded'});
@@ -212,7 +211,7 @@ async function getDataFromFlaCarsShows(page, browser) {
         }
         browser.close();
     }
-    console.log(results)
+    console.log(results);
     console.log("pulled " + results.length + " results");
     return {
         'result': results,
